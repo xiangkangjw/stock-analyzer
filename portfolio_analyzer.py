@@ -371,9 +371,13 @@ Portfolio Summary:
                 f"   {row['Asset']}: {row['Weight']:.1f}% (${row['Value in Cad']:,.0f})"
             )
 
+        # Individual Position Risk Analysis
+        if len(self.risk_metrics) > 0:
+            self.print_individual_risk_analysis()
+
         # Risk Metrics
         if len(self.risk_metrics) > 0:
-            print("\n📈 RISK METRICS (Stock/ETF Positions):")
+            print("\n📈 PORTFOLIO RISK METRICS (Stock/ETF Positions):")
             print(
                 f"   Average Volatility: {self.risk_metrics['Volatility'].mean():.2%}"
             )
@@ -418,6 +422,107 @@ Portfolio Summary:
             print(
                 "\n✅ No major concerns identified. Portfolio appears well-structured."
             )
+
+    def print_individual_risk_analysis(self):
+        """Print detailed risk analysis for each individual position"""
+        print("\n" + "=" * 80)
+        print("INDIVIDUAL POSITION RISK-ADJUSTED RETURN ANALYSIS")
+        print("=" * 80)
+
+        # Sort by portfolio weight (largest positions first)
+        sorted_metrics = self.risk_metrics.sort_values("Weight", ascending=False)
+
+        print(
+            f"{'Position':<20} {'Weight':<8} {'Volatility':<12} {'Sharpe':<8} {'Max DD':<10} {'Currency':<8} {'Type':<8}"
+        )
+        print("-" * 80)
+
+        for _, row in sorted_metrics.iterrows():
+            # Color coding for Sharpe ratio
+            sharpe = row["Sharpe_Ratio"]
+            if sharpe >= 1.0:
+                sharpe_indicator = "🟢"
+            elif sharpe >= 0.5:
+                sharpe_indicator = "🟡"
+            else:
+                sharpe_indicator = "🔴"
+
+            # Risk level based on volatility
+            vol = row["Volatility"]
+            if vol <= 0.20:
+                risk_level = "Low"
+            elif vol <= 0.35:
+                risk_level = "Med"
+            else:
+                risk_level = "High"
+
+            print(
+                f"{row['Asset']:<20} {row['Weight']:<7.1%} {vol:<11.1%} {sharpe_indicator}{sharpe:<6.2f} {row['Max_Drawdown']:<9.1%} {row['Currency']:<8} {row['Type']:<8}"
+            )
+
+        print("\n" + "=" * 80)
+        print("DETAILED POSITION ANALYSIS")
+        print("=" * 80)
+
+        for _, row in sorted_metrics.iterrows():
+            print(f"\n📊 {row['Asset']} ({row['Ticker']})")
+            print(f"   Portfolio Weight: {row['Weight']:.1%}")
+            print(f"   Value: ${row['Value']:,.0f} CAD")
+            print(f"   Currency: {row['Currency']}")
+            print(f"   Type: {row['Type']}")
+            print(f"   Risk Metrics:")
+            print(f"     • Volatility: {row['Volatility']:.1%} (Annualized)")
+            print(
+                f"     • Sharpe Ratio: {row['Sharpe_Ratio']:.2f} (Risk-adjusted return)"
+            )
+            print(f"     • Maximum Drawdown: {row['Max_Drawdown']:.1%} (Worst decline)")
+            print(f"     • Value at Risk (95%): {row['VaR_95']:.1%} (Daily risk)")
+
+            # Performance interpretation
+            sharpe = row["Sharpe_Ratio"]
+            if sharpe >= 1.0:
+                performance = "Excellent risk-adjusted returns"
+            elif sharpe >= 0.5:
+                performance = "Good risk-adjusted returns"
+            elif sharpe >= 0:
+                performance = "Moderate risk-adjusted returns"
+            else:
+                performance = "Poor risk-adjusted returns"
+
+            print(f"   Performance: {performance}")
+
+            # Risk assessment
+            vol = row["Volatility"]
+            if vol <= 0.20:
+                risk_assessment = "Low risk"
+            elif vol <= 0.35:
+                risk_assessment = "Moderate risk"
+            else:
+                risk_assessment = "High risk"
+
+            print(f"   Risk Level: {risk_assessment}")
+
+            # Position-specific recommendations
+            recommendations = []
+            if row["Weight"] > 0.10:  # > 10% of portfolio
+                recommendations.append(
+                    "Consider reducing position size for diversification"
+                )
+            if sharpe < 0.5:
+                recommendations.append(
+                    "Low risk-adjusted returns - consider alternatives"
+                )
+            if vol > 0.40:
+                recommendations.append(
+                    "High volatility - ensure this fits your risk tolerance"
+                )
+
+            if recommendations:
+                print(f"   💡 Recommendations:")
+                for rec in recommendations:
+                    print(f"     • {rec}")
+            else:
+                print(f"   ✅ Position appears well-balanced")
 
     def run_analysis(self):
         """Run complete portfolio analysis"""
