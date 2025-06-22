@@ -11,6 +11,8 @@ import seaborn as sns
 from datetime import datetime, timedelta
 import yfinance as yf
 import warnings
+import argparse
+import sys
 
 warnings.filterwarnings("ignore")
 
@@ -95,8 +97,8 @@ class PortfolioAnalyzer:
 
         return historical_data
 
-    def calculate_risk_metrics(self, historical_data):
-        """Calculate risk metrics for each position"""
+    def calculate_advanced_risk_metrics(self, historical_data):
+        """Calculate advanced risk metrics for each position"""
         risk_data = []
 
         for _, row in self.stock_etf_data.iterrows():
@@ -105,13 +107,87 @@ class PortfolioAnalyzer:
                 prices = historical_data[ticker]
                 returns = prices.pct_change().dropna()
 
-                # Calculate risk metrics
+                # Basic risk metrics
                 volatility = returns.std() * np.sqrt(252)  # Annualized
+                mean_return = returns.mean() * 252  # Annualized
+
+                # Sharpe Ratio (assuming 2% risk-free rate)
+                risk_free_rate = 0.02
                 sharpe_ratio = (
-                    (returns.mean() * 252) / volatility if volatility > 0 else 0
+                    (mean_return - risk_free_rate) / volatility if volatility > 0 else 0
                 )
-                max_drawdown = (prices / prices.expanding().max() - 1).min()
+
+                # Sortino Ratio (downside deviation)
+                downside_returns = returns[returns < 0]
+                downside_deviation = (
+                    downside_returns.std() * np.sqrt(252)
+                    if len(downside_returns) > 0
+                    else 0
+                )
+                sortino_ratio = (
+                    (mean_return - risk_free_rate) / downside_deviation
+                    if downside_deviation > 0
+                    else 0
+                )
+
+                # Maximum Drawdown
+                cumulative_returns = (1 + returns).cumprod()
+                running_max = cumulative_returns.expanding().max()
+                drawdown = (cumulative_returns - running_max) / running_max
+                max_drawdown = drawdown.min()
+
+                # Calmar Ratio (annual return / max drawdown)
+                calmar_ratio = (
+                    mean_return / abs(max_drawdown) if max_drawdown != 0 else 0
+                )
+
+                # Information Ratio (excess return / tracking error)
+                # Using S&P 500 as benchmark
+                try:
+                    benchmark = yf.Ticker("^GSPC").history(period="2y")["Close"]
+                    benchmark_returns = benchmark.pct_change().dropna()
+                    # Align dates
+                    common_dates = returns.index.intersection(benchmark_returns.index)
+                    if len(common_dates) > 30:
+                        aligned_returns = returns.loc[common_dates]
+                        aligned_benchmark = benchmark_returns.loc[common_dates]
+                        excess_returns = aligned_returns - aligned_benchmark
+                        tracking_error = excess_returns.std() * np.sqrt(252)
+                        information_ratio = (
+                            excess_returns.mean() * 252 / tracking_error
+                            if tracking_error > 0
+                            else 0
+                        )
+                    else:
+                        information_ratio = 0
+                except:
+                    information_ratio = 0
+
+                # Value at Risk (95% confidence)
                 var_95 = np.percentile(returns, 5)
+
+                # Conditional Value at Risk (Expected Shortfall)
+                cvar_95 = (
+                    returns[returns <= var_95].mean()
+                    if len(returns[returns <= var_95]) > 0
+                    else 0
+                )
+
+                # Beta (market sensitivity)
+                try:
+                    if len(common_dates) > 30:
+                        beta = np.cov(aligned_returns, aligned_benchmark)[
+                            0, 1
+                        ] / np.var(aligned_benchmark)
+                    else:
+                        beta = 1.0
+                except:
+                    beta = 1.0
+
+                # Treynor Ratio (excess return / beta)
+                treynor_ratio = (
+                    (mean_return - risk_free_rate) / beta if beta != 0 else 0
+                )
 
                 risk_data.append(
                     {
@@ -120,9 +196,16 @@ class PortfolioAnalyzer:
                         "Value": row["Value in Cad"],
                         "Weight": row["Value in Cad"] / self.total_value,
                         "Volatility": volatility,
+                        "Mean_Return": mean_return,
                         "Sharpe_Ratio": sharpe_ratio,
+                        "Sortino_Ratio": sortino_ratio,
+                        "Calmar_Ratio": calmar_ratio,
+                        "Information_Ratio": information_ratio,
+                        "Treynor_Ratio": treynor_ratio,
                         "Max_Drawdown": max_drawdown,
                         "VaR_95": var_95,
+                        "CVaR_95": cvar_95,
+                        "Beta": beta,
                         "Currency": row["US/CAD"],
                         "Type": row["Stock/ETF"],
                     }
@@ -425,17 +508,17 @@ Portfolio Summary:
 
     def print_individual_risk_analysis(self):
         """Print detailed risk analysis for each individual position"""
-        print("\n" + "=" * 80)
+        print("\n" + "=" * 100)
         print("INDIVIDUAL POSITION RISK-ADJUSTED RETURN ANALYSIS")
-        print("=" * 80)
+        print("=" * 100)
 
         # Sort by portfolio weight (largest positions first)
         sorted_metrics = self.risk_metrics.sort_values("Weight", ascending=False)
 
         print(
-            f"{'Position':<20} {'Weight':<8} {'Volatility':<12} {'Sharpe':<8} {'Max DD':<10} {'Currency':<8} {'Type':<8}"
+            f"{'Position':<20} {'Weight':<8} {'Vol':<8} {'Sharpe':<8} {'Sortino':<8} {'Calmar':<8} {'Info':<8} {'Beta':<6}"
         )
-        print("-" * 80)
+        print("-" * 100)
 
         for _, row in sorted_metrics.iterrows():
             # Color coding for Sharpe ratio
@@ -447,22 +530,22 @@ Portfolio Summary:
             else:
                 sharpe_indicator = "🔴"
 
-            # Risk level based on volatility
-            vol = row["Volatility"]
-            if vol <= 0.20:
-                risk_level = "Low"
-            elif vol <= 0.35:
-                risk_level = "Med"
+            # Color coding for Sortino ratio
+            sortino = row["Sortino_Ratio"]
+            if sortino >= 1.0:
+                sortino_indicator = "🟢"
+            elif sortino >= 0.5:
+                sortino_indicator = "🟡"
             else:
-                risk_level = "High"
+                sortino_indicator = "🔴"
 
             print(
-                f"{row['Asset']:<20} {row['Weight']:<7.1%} {vol:<11.1%} {sharpe_indicator}{sharpe:<6.2f} {row['Max_Drawdown']:<9.1%} {row['Currency']:<8} {row['Type']:<8}"
+                f"{row['Asset']:<20} {row['Weight']:<7.1%} {row['Volatility']:<7.1%} {sharpe_indicator}{sharpe:<6.2f} {sortino_indicator}{sortino:<6.2f} {row['Calmar_Ratio']:<7.2f} {row['Information_Ratio']:<7.2f} {row['Beta']:<5.2f}"
             )
 
-        print("\n" + "=" * 80)
+        print("\n" + "=" * 100)
         print("DETAILED POSITION ANALYSIS")
-        print("=" * 80)
+        print("=" * 100)
 
         for _, row in sorted_metrics.iterrows():
             print(f"\n📊 {row['Asset']} ({row['Ticker']})")
@@ -472,11 +555,30 @@ Portfolio Summary:
             print(f"   Type: {row['Type']}")
             print(f"   Risk Metrics:")
             print(f"     • Volatility: {row['Volatility']:.1%} (Annualized)")
-            print(
-                f"     • Sharpe Ratio: {row['Sharpe_Ratio']:.2f} (Risk-adjusted return)"
-            )
+            print(f"     • Mean Return: {row['Mean_Return']:.1%} (Annualized)")
+            print(f"     • Beta: {row['Beta']:.2f} (Market sensitivity)")
             print(f"     • Maximum Drawdown: {row['Max_Drawdown']:.1%} (Worst decline)")
             print(f"     • Value at Risk (95%): {row['VaR_95']:.1%} (Daily risk)")
+            print(
+                f"     • Conditional VaR (95%): {row['CVaR_95']:.1%} (Expected shortfall)"
+            )
+
+            print(f"   Risk-Adjusted Return Metrics:")
+            print(
+                f"     • Sharpe Ratio: {row['Sharpe_Ratio']:.2f} (Return per unit of total risk)"
+            )
+            print(
+                f"     • Sortino Ratio: {row['Sortino_Ratio']:.2f} (Return per unit of downside risk)"
+            )
+            print(
+                f"     • Calmar Ratio: {row['Calmar_Ratio']:.2f} (Return per unit of max drawdown)"
+            )
+            print(
+                f"     • Information Ratio: {row['Information_Ratio']:.2f} (Excess return vs S&P 500)"
+            )
+            print(
+                f"     • Treynor Ratio: {row['Treynor_Ratio']:.2f} (Return per unit of systematic risk)"
+            )
 
             # Performance interpretation
             sharpe = row["Sharpe_Ratio"]
@@ -516,6 +618,12 @@ Portfolio Summary:
                 recommendations.append(
                     "High volatility - ensure this fits your risk tolerance"
                 )
+            if row["Beta"] > 1.5:
+                recommendations.append(
+                    "High market sensitivity - consider defensive positions"
+                )
+            if row["Information_Ratio"] < 0:
+                recommendations.append("Underperforming vs S&P 500 - review position")
 
             if recommendations:
                 print(f"   💡 Recommendations:")
@@ -524,47 +632,163 @@ Portfolio Summary:
             else:
                 print(f"   ✅ Position appears well-balanced")
 
-    def run_analysis(self):
-        """Run complete portfolio analysis"""
-        print("Starting Portfolio Analysis...")
+    def print_risk_comparison_summary(self):
+        """Print summary comparison of risk metrics across positions"""
+        if len(self.risk_metrics) == 0:
+            return
 
-        # Step 1: Clean data
+        print("\n" + "=" * 80)
+        print("RISK METRICS COMPARISON SUMMARY")
+        print("=" * 80)
+
+        metrics_to_compare = [
+            "Sharpe_Ratio",
+            "Sortino_Ratio",
+            "Calmar_Ratio",
+            "Information_Ratio",
+            "Treynor_Ratio",
+        ]
+
+        for metric in metrics_to_compare:
+            if metric in self.risk_metrics.columns:
+                best_position = self.risk_metrics.loc[
+                    self.risk_metrics[metric].idxmax()
+                ]
+                worst_position = self.risk_metrics.loc[
+                    self.risk_metrics[metric].idxmin()
+                ]
+
+                print(f"\n📈 {metric.replace('_', ' ')}:")
+                print(
+                    f"   Best: {best_position['Asset']} ({best_position['Ticker']}) = {best_position[metric]:.2f}"
+                )
+                print(
+                    f"   Worst: {worst_position['Asset']} ({worst_position['Ticker']}) = {worst_position[metric]:.2f}"
+                )
+                print(f"   Average: {self.risk_metrics[metric].mean():.2f}")
+
+    def run_basic_analysis(self):
+        """Run basic portfolio analysis without risk metrics"""
+        print("Running Basic Portfolio Analysis...")
         self.clean_data()
-
-        # Step 2: Get historical data for risk analysis
-        historical_data = self.get_historical_data()
-
-        # Step 3: Calculate risk metrics
-        if historical_data:
-            self.calculate_risk_metrics(historical_data)
-
-        # Step 4: Analyze diversification
         self.analyze_diversification()
-
-        # Step 5: Apply Dalio principles
         self.apply_dalio_principles()
-
-        # Step 6: Print detailed analysis
         self.print_detailed_analysis()
 
-        # Step 7: Create visualizations
-        try:
-            self.create_visualizations()
-            print("\n📊 Visualizations saved as 'portfolio_analysis.png'")
-        except Exception as e:
-            print(f"Could not create visualizations: {e}")
+    def run_risk_analysis(self):
+        """Run comprehensive risk analysis"""
+        print("Running Comprehensive Risk Analysis...")
+        self.clean_data()
+        historical_data = self.get_historical_data()
+        if historical_data:
+            self.calculate_advanced_risk_metrics(historical_data)
+            self.print_individual_risk_analysis()
+            self.print_risk_comparison_summary()
+        else:
+            print("No historical data available for risk analysis")
 
-        return self.dalio_analysis
+    def run_dalio_analysis(self):
+        """Run Ray Dalio principles analysis"""
+        print("Running Ray Dalio Principles Analysis...")
+        self.clean_data()
+        self.analyze_diversification()
+        self.apply_dalio_principles()
+
+        print("\n" + "=" * 60)
+        print("RAY DALIO PRINCIPLES ANALYSIS")
+        print("=" * 60)
+
+        principles = self.dalio_analysis["principles"]
+        print(
+            f"\n🎯 Diversification Score: {principles.get('diversification_score', 'N/A'):.2f}"
+        )
+        print(f"   - Measures how uncorrelated your assets are")
+        print(f"   - Higher is better (0-1 scale)")
+
+        print(
+            f"\n⚖️  Risk Parity Score: {principles.get('risk_parity_score', 'N/A'):.2f}"
+        )
+        print(f"   - Measures equal risk contribution across positions")
+        print(f"   - Higher is better")
+
+        print(f"\n🌍 Asset Class Diversity: {principles['asset_class_diversity']}/4")
+        print(f"   - Stocks, ETFs, Bonds, Cash")
+
+        print(
+            f"\n🌐 Geographic Diversification: {principles['geographic_diversification']:.2f}"
+        )
+        print(f"   - Measures currency and regional exposure")
+        print(f"   - Higher is better (0-1 scale)")
+
+        # Recommendations based on Dalio principles
+        recommendations = self.generate_recommendations()
+        if recommendations:
+            print(f"\n💡 Dalio-Based Recommendations:")
+            for rec in recommendations:
+                print(f"   {rec}")
+
+    def run_visualizations(self):
+        """Run portfolio visualizations"""
+        print("Creating Portfolio Visualizations...")
+        self.clean_data()
+        historical_data = self.get_historical_data()
+        if historical_data:
+            self.calculate_advanced_risk_metrics(historical_data)
+        self.analyze_diversification()
+        self.apply_dalio_principles()
+        self.create_visualizations()
+
+    def run_complete_analysis(self):
+        """Run complete portfolio analysis"""
+        print("Running Complete Portfolio Analysis...")
+        self.clean_data()
+        historical_data = self.get_historical_data()
+        if historical_data:
+            self.calculate_advanced_risk_metrics(historical_data)
+        self.analyze_diversification()
+        self.apply_dalio_principles()
+        self.print_detailed_analysis()
+        self.print_risk_comparison_summary()
+        self.create_visualizations()
 
 
 def main():
-    """Main function to run the portfolio analysis"""
+    """Main function to run the portfolio analysis with command-line options"""
+    parser = argparse.ArgumentParser(
+        description="Portfolio Analyzer with Ray Dalio Investment Principles"
+    )
+    parser.add_argument(
+        "--csv",
+        default="stocks.csv",
+        help="CSV file containing portfolio data (default: stocks.csv)",
+    )
+    parser.add_argument(
+        "--analysis",
+        choices=["basic", "risk", "dalio", "visual", "complete"],
+        default="complete",
+        help="Type of analysis to run (default: complete)",
+    )
+    parser.add_argument(
+        "--period", default="2y", help="Historical data period (default: 2y)"
+    )
+
+    args = parser.parse_args()
+
     try:
         # Initialize analyzer
-        analyzer = PortfolioAnalyzer("stocks.csv")
+        analyzer = PortfolioAnalyzer(args.csv)
 
-        # Run complete analysis
-        results = analyzer.run_analysis()
+        # Run selected analysis
+        if args.analysis == "basic":
+            analyzer.run_basic_analysis()
+        elif args.analysis == "risk":
+            analyzer.run_risk_analysis()
+        elif args.analysis == "dalio":
+            analyzer.run_dalio_analysis()
+        elif args.analysis == "visual":
+            analyzer.run_visualizations()
+        elif args.analysis == "complete":
+            analyzer.run_complete_analysis()
 
         print("\n" + "=" * 60)
         print("ANALYSIS COMPLETE")

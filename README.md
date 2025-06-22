@@ -18,12 +18,18 @@ A comprehensive Python tool to analyze investment portfolios with a focus on ris
 3. **All-Weather Portfolio**: Checks for presence of different asset classes
 4. **Geographic Diversification**: Analyzes currency and regional exposure
 
-### 📈 Risk Metrics
+### 📈 Advanced Risk Metrics
 
 - **Volatility**: Annualized standard deviation of returns
-- **Sharpe Ratio**: Risk-adjusted return measure
+- **Sharpe Ratio**: Risk-adjusted return measure (return per unit of total risk)
+- **Sortino Ratio**: Downside risk-adjusted return measure
+- **Calmar Ratio**: Return per unit of maximum drawdown
+- **Information Ratio**: Excess return vs S&P 500 benchmark
+- **Treynor Ratio**: Return per unit of systematic risk (beta)
 - **Maximum Drawdown**: Worst peak-to-trough decline
 - **Value at Risk (VaR)**: 95% confidence interval for potential losses
+- **Conditional VaR (CVaR)**: Expected shortfall beyond VaR
+- **Beta**: Market sensitivity measure
 - **Herfindahl-Hirschman Index (HHI)**: Portfolio concentration measure
 
 ### 💡 Smart Recommendations
@@ -32,6 +38,7 @@ A comprehensive Python tool to analyze investment portfolios with a focus on ris
 - Currency diversification suggestions
 - Cash allocation optimization
 - Risk-adjusted return improvements
+- Position-specific recommendations
 
 ### 📊 Visualizations
 
@@ -56,11 +63,40 @@ pip install -r requirements.txt
 
 ## Usage
 
-### Basic Usage
+### Command-Line Options
+
+The analyzer supports multiple analysis types with command-line flags:
 
 ```bash
+# Complete analysis (default)
 python portfolio_analyzer.py
+
+# Basic portfolio analysis (no risk metrics)
+python portfolio_analyzer.py --analysis basic
+
+# Comprehensive risk analysis only
+python portfolio_analyzer.py --analysis risk
+
+# Ray Dalio principles analysis only
+python portfolio_analyzer.py --analysis dalio
+
+# Visualizations only
+python portfolio_analyzer.py --analysis visual
+
+# Custom CSV file
+python portfolio_analyzer.py --csv my_portfolio.csv
+
+# Custom historical data period
+python portfolio_analyzer.py --period 1y
 ```
+
+### Analysis Types
+
+1. **`basic`**: Portfolio overview, asset allocation, and diversification analysis
+2. **`risk`**: Comprehensive risk metrics for each position with detailed analysis
+3. **`dalio`**: Ray Dalio principles assessment and recommendations
+4. **`visual`**: Generate portfolio visualizations and charts
+5. **`complete`**: Full analysis including all above components (default)
 
 ### Expected CSV Format
 
@@ -79,13 +115,55 @@ The analyzer provides:
 
    - Portfolio summary statistics
    - Detailed asset allocation analysis
-   - Risk metrics for each position
+   - Advanced risk metrics for each position
    - Ray Dalio principles assessment
    - Personalized recommendations
+   - Risk metrics comparison summary
 
 2. **Visual Dashboard**:
    - Interactive matplotlib visualizations
    - Saved as `portfolio_analysis.png`
+
+## Advanced Risk Metrics Explained
+
+### Sharpe Ratio
+
+- **Formula**: (Return - Risk Free Rate) / Volatility
+- **Interpretation**: Higher is better, >1.0 is excellent
+- **Purpose**: Measures risk-adjusted returns considering total risk
+
+### Sortino Ratio
+
+- **Formula**: (Return - Risk Free Rate) / Downside Deviation
+- **Interpretation**: Higher is better, focuses on downside risk only
+- **Purpose**: Better measure for risk-averse investors
+
+### Calmar Ratio
+
+- **Formula**: Annual Return / Maximum Drawdown
+- **Interpretation**: Higher is better, shows return per unit of worst decline
+- **Purpose**: Measures recovery from worst losses
+
+### Information Ratio
+
+- **Formula**: (Portfolio Return - Benchmark Return) / Tracking Error
+- **Interpretation**: Higher is better, >0.5 is good
+- **Purpose**: Measures active management skill vs S&P 500
+
+### Treynor Ratio
+
+- **Formula**: (Return - Risk Free Rate) / Beta
+- **Interpretation**: Higher is better, measures systematic risk
+- **Purpose**: Evaluates return per unit of market risk
+
+### Beta
+
+- **Formula**: Covariance(Portfolio, Market) / Variance(Market)
+- **Interpretation**:
+  - β = 1: Moves with market
+  - β > 1: More volatile than market
+  - β < 1: Less volatile than market
+- **Purpose**: Measures market sensitivity
 
 ## Ray Dalio's Investment Philosophy
 
@@ -116,12 +194,6 @@ This tool incorporates key principles from Ray Dalio's investment strategy:
 - **Continuous Monitoring**: Regular portfolio health checks
 
 ## Key Metrics Explained
-
-### Sharpe Ratio
-
-- **Formula**: (Return - Risk Free Rate) / Volatility
-- **Interpretation**: Higher is better, >1.0 is excellent
-- **Purpose**: Measures risk-adjusted returns
 
 ### Maximum Drawdown
 
@@ -168,6 +240,12 @@ Cash positions: 7
    Risk Parity Score: 0.68
    Asset Class Diversity: 4/4
    Geographic Diversification: 0.35
+
+📈 RISK METRICS COMPARISON SUMMARY:
+   Sharpe Ratio:
+     Best: NVIDIA (NVDA) = 1.85
+     Worst: Tesla (TSLA) = 0.32
+     Average: 1.06
 
 💡 RECOMMENDATIONS:
    ⚠️  HIGH USD EXPOSURE: Consider increasing CAD-denominated investments
