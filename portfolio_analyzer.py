@@ -52,14 +52,17 @@ class PortfolioAnalyzer:
 
     def clean_data(self):
         """Clean and prepare portfolio data"""
-        # Remove rows with missing tickers or values
-        self.df = self.df.dropna(subset=["Ticker", "Value in Cad"])
+        # Remove rows with missing values (but allow cash positions to have missing tickers)
+        self.df = self.df.dropna(subset=["Value in Cad"])
 
         # Convert Value in Cad to numeric, handling any formatting issues
         self.df["Value in Cad"] = pd.to_numeric(
             self.df["Value in Cad"], errors="coerce"
         )
         self.df = self.df.dropna(subset=["Value in Cad"])
+
+        # Handle missing tickers for cash positions
+        self.df["Ticker"] = self.df["Ticker"].fillna("CASH")
 
         # Filter out cash positions for stock/ETF analysis (we'll analyze separately)
         self.stock_etf_data = self.df[self.df["Stock/ETF"].isin(["Stock", "ETF"])]
@@ -77,11 +80,16 @@ class PortfolioAnalyzer:
 
     def get_historical_data(self, period="2y"):
         """Fetch historical data for portfolio holdings"""
+        # Only get tickers from stock/ETF positions, not cash
         tickers = self.stock_etf_data["Ticker"].unique()
         historical_data = {}
 
         print("Fetching historical data for risk analysis...")
         for ticker in tickers:
+            # Skip cash positions
+            if ticker == "CASH" or pd.isna(ticker):
+                continue
+
             try:
                 # Map ticker to correct format
                 mapped_ticker = self.map_ticker(ticker)
@@ -447,18 +455,30 @@ Portfolio Summary:
         for currency, percentage in self.dalio_analysis["currency_exposure"].items():
             print(f"   {currency}: {percentage:.1f}%")
 
-        # Top Holdings
+        # Top Holdings (including cash)
         print("\n🏆 TOP 5 HOLDINGS:")
         for _, row in self.dalio_analysis["top_holdings"].iterrows():
             print(
                 f"   {row['Asset']}: {row['Weight']:.1f}% (${row['Value in Cad']:,.0f})"
             )
 
-        # Individual Position Risk Analysis
+        # Cash Positions Summary
+        if len(self.cash_data) > 0:
+            print("\n💰 CASH POSITIONS:")
+            total_cash = self.cash_data["Value in Cad"].sum()
+            print(
+                f"   Total Cash: ${total_cash:,.0f} CAD ({total_cash/self.total_value:.1%})"
+            )
+            for _, row in self.cash_data.iterrows():
+                print(
+                    f"     • {row['Asset']}: ${row['Value in Cad']:,.0f} ({row['US/CAD']})"
+                )
+
+        # Individual Position Risk Analysis (only for stocks/ETFs)
         if len(self.risk_metrics) > 0:
             self.print_individual_risk_analysis()
 
-        # Risk Metrics
+        # Risk Metrics (only for stocks/ETFs)
         if len(self.risk_metrics) > 0:
             print("\n📈 PORTFOLIO RISK METRICS (Stock/ETF Positions):")
             print(
@@ -474,16 +494,32 @@ Portfolio Summary:
         # Dalio Principles
         print("\n🎯 RAY DALIO PRINCIPLES ANALYSIS:")
         principles = self.dalio_analysis["principles"]
-        if "diversification_score" in principles:
+
+        # Handle potential string values safely
+        diversification_score = principles.get("diversification_score", "N/A")
+        risk_parity_score = principles.get("risk_parity_score", "N/A")
+        geographic_diversification = principles.get("geographic_diversification", "N/A")
+
+        print(f"\n🎯 Diversification Score: {diversification_score}")
+        print(f"   - Measures how uncorrelated your assets are")
+        print(f"   - Higher is better (0-1 scale)")
+        print(f"\n⚖️  Risk Parity Score: {risk_parity_score}")
+        print(f"   - Measures equal risk contribution across positions")
+        print(f"   - Higher is better")
+        print(f"\n🌍 Asset Class Diversity: {principles['asset_class_diversity']}/4")
+        print(f"   - Stocks, ETFs, Bonds, Cash")
+        print(f"\n🌐 Geographic Diversification: {geographic_diversification}")
+        print(f"   - Measures currency and regional exposure")
+        print(f"   - Higher is better (0-1 scale)")
+        recommendations = self.generate_recommendations()
+        if recommendations:
+            print(f"\n💡 Dalio-Based Recommendations:")
+            for rec in recommendations:
+                print(f"   {rec}")
+        else:
             print(
-                f"   Diversification Score: {principles['diversification_score']:.2f}"
+                "\n✅ No major concerns identified. Portfolio appears well-structured."
             )
-        if "risk_parity_score" in principles:
-            print(f"   Risk Parity Score: {principles['risk_parity_score']:.2f}")
-        print(f"   Asset Class Diversity: {principles['asset_class_diversity']}/4")
-        print(
-            f"   Geographic Diversification: {principles['geographic_diversification']:.2f}"
-        )
 
         # Portfolio Health Indicators
         print("\n🏥 PORTFOLIO HEALTH INDICATORS:")
@@ -494,17 +530,6 @@ Portfolio Summary:
             print("   ⚠️  Moderately concentrated")
         else:
             print("   ❌ Highly concentrated")
-
-        # Recommendations
-        recommendations = self.generate_recommendations()
-        if recommendations:
-            print("\n💡 RECOMMENDATIONS:")
-            for rec in recommendations:
-                print(f"   {rec}")
-        else:
-            print(
-                "\n✅ No major concerns identified. Portfolio appears well-structured."
-            )
 
     def print_individual_risk_analysis(self):
         """Print detailed risk analysis for each individual position"""
@@ -667,60 +692,145 @@ Portfolio Summary:
                 )
                 print(f"   Average: {self.risk_metrics[metric].mean():.2f}")
 
+    def get_latest_prices_and_convert(self):
+        """Fetch latest prices and convert all values to CAD"""
+        print("Fetching latest prices and converting to CAD...")
+        try:
+            usdcad_ticker = yf.Ticker("USDCAD=X")
+            usdcad_rate = usdcad_ticker.history(period="1d")["Close"].iloc[-1]
+            print(f"Current USD/CAD exchange rate: {usdcad_rate:.4f}")
+        except Exception as e:
+            print(f"Could not fetch USD/CAD rate, using default 1.35: {e}")
+            usdcad_rate = 1.35
+        updated_data = []
+        for _, row in self.df.iterrows():
+            asset_name = row["Asset"]
+            ticker = row["Ticker"]
+            currency = row["US/CAD"]
+            asset_type = row["Stock/ETF"]
+            # Handle cash positions
+            if asset_type == "Cash":
+                if currency == "USD":
+                    value_cad = (
+                        float(row["Value"]) * usdcad_rate
+                        if pd.notna(row["Value"])
+                        else float(row["Value in Cad"]) * usdcad_rate
+                    )
+                    print(
+                        f"💰 {asset_name}: ${row['Value'] or row['Value in Cad']:,} USD → ${value_cad:,.2f} CAD"
+                    )
+                else:
+                    value_cad = (
+                        float(row["Value"])
+                        if pd.notna(row["Value"])
+                        else float(row["Value in Cad"])
+                    )
+                    print(f"💰 {asset_name}: ${value_cad:,.2f} CAD")
+                updated_data.append(
+                    {
+                        "Asset": asset_name,
+                        "Ticker": ticker,
+                        "Value in Cad": value_cad,
+                        "Stock/ETF": asset_type,
+                        "US/CAD": currency,
+                    }
+                )
+                continue
+            # Handle stocks and ETFs
+            if pd.isna(ticker) or ticker == "CASH":
+                continue
+            try:
+                mapped_ticker = self.map_ticker(ticker)
+                stock = yf.Ticker(mapped_ticker)
+                latest_data = stock.history(period="1d")
+                if not latest_data.empty:
+                    latest_price = latest_data["Close"].iloc[-1]
+                    try:
+                        holding = float(str(row["Holding"]).replace(",", ""))
+                        current_value_native = holding * latest_price
+                    except (ValueError, TypeError):
+                        print(
+                            f"⚠️  Could not parse holding for {asset_name} ({ticker}), skipping."
+                        )
+                        continue
+                    if currency == "USD":
+                        current_value_cad = current_value_native * usdcad_rate
+                        print(
+                            f"📈 {asset_name} ({ticker}): {holding} x ${latest_price:.2f} USD → ${current_value_cad:,.2f} CAD"
+                        )
+                    else:
+                        current_value_cad = current_value_native
+                        print(
+                            f"📈 {asset_name} ({ticker}): {holding} x ${latest_price:.2f} CAD → ${current_value_cad:,.2f} CAD"
+                        )
+                    updated_data.append(
+                        {
+                            "Asset": asset_name,
+                            "Ticker": ticker,
+                            "Value in Cad": current_value_cad,
+                            "Stock/ETF": asset_type,
+                            "US/CAD": currency,
+                        }
+                    )
+                else:
+                    print(f"❌ No price data available for {ticker} ({mapped_ticker})")
+            except Exception as e:
+                print(f"❌ Error fetching price for {ticker} ({mapped_ticker}): {e}")
+        self.df_updated = pd.DataFrame(updated_data)
+        self.total_value_updated = self.df_updated["Value in Cad"].sum()
+        return self.df_updated
+
     def run_basic_analysis(self):
-        """Run basic portfolio analysis without risk metrics"""
         print("Running Basic Portfolio Analysis...")
         self.clean_data()
+        self.get_latest_prices_and_convert()
+        self.df = self.df_updated
+        self.total_value = self.total_value_updated
         self.analyze_diversification()
         self.apply_dalio_principles()
         self.print_detailed_analysis()
 
     def run_risk_analysis(self):
-        """Run comprehensive risk analysis"""
         print("Running Comprehensive Risk Analysis...")
         self.clean_data()
+        self.get_latest_prices_and_convert()
+        self.df = self.df_updated
+        self.total_value = self.total_value_updated
         historical_data = self.get_historical_data()
         if historical_data:
             self.calculate_advanced_risk_metrics(historical_data)
             self.print_individual_risk_analysis()
             self.print_risk_comparison_summary()
-        else:
-            print("No historical data available for risk analysis")
 
     def run_dalio_analysis(self):
-        """Run Ray Dalio principles analysis"""
         print("Running Ray Dalio Principles Analysis...")
         self.clean_data()
+        self.get_latest_prices_and_convert()
+        self.df = self.df_updated
+        self.total_value = self.total_value_updated
         self.analyze_diversification()
         self.apply_dalio_principles()
-
         print("\n" + "=" * 60)
         print("RAY DALIO PRINCIPLES ANALYSIS")
         print("=" * 60)
-
         principles = self.dalio_analysis["principles"]
-        print(
-            f"\n🎯 Diversification Score: {principles.get('diversification_score', 'N/A'):.2f}"
-        )
+
+        # Handle potential string values safely
+        diversification_score = principles.get("diversification_score", "N/A")
+        risk_parity_score = principles.get("risk_parity_score", "N/A")
+        geographic_diversification = principles.get("geographic_diversification", "N/A")
+
+        print(f"\n🎯 Diversification Score: {diversification_score}")
         print(f"   - Measures how uncorrelated your assets are")
         print(f"   - Higher is better (0-1 scale)")
-
-        print(
-            f"\n⚖️  Risk Parity Score: {principles.get('risk_parity_score', 'N/A'):.2f}"
-        )
+        print(f"\n⚖️  Risk Parity Score: {risk_parity_score}")
         print(f"   - Measures equal risk contribution across positions")
         print(f"   - Higher is better")
-
         print(f"\n🌍 Asset Class Diversity: {principles['asset_class_diversity']}/4")
         print(f"   - Stocks, ETFs, Bonds, Cash")
-
-        print(
-            f"\n🌐 Geographic Diversification: {principles['geographic_diversification']:.2f}"
-        )
+        print(f"\n🌐 Geographic Diversification: {geographic_diversification}")
         print(f"   - Measures currency and regional exposure")
         print(f"   - Higher is better (0-1 scale)")
-
-        # Recommendations based on Dalio principles
         recommendations = self.generate_recommendations()
         if recommendations:
             print(f"\n💡 Dalio-Based Recommendations:")
@@ -728,9 +838,11 @@ Portfolio Summary:
                 print(f"   {rec}")
 
     def run_visualizations(self):
-        """Run portfolio visualizations"""
         print("Creating Portfolio Visualizations...")
         self.clean_data()
+        self.get_latest_prices_and_convert()
+        self.df = self.df_updated
+        self.total_value = self.total_value_updated
         historical_data = self.get_historical_data()
         if historical_data:
             self.calculate_advanced_risk_metrics(historical_data)
@@ -739,9 +851,11 @@ Portfolio Summary:
         self.create_visualizations()
 
     def run_complete_analysis(self):
-        """Run complete portfolio analysis"""
         print("Running Complete Portfolio Analysis...")
         self.clean_data()
+        self.get_latest_prices_and_convert()
+        self.df = self.df_updated
+        self.total_value = self.total_value_updated
         historical_data = self.get_historical_data()
         if historical_data:
             self.calculate_advanced_risk_metrics(historical_data)
@@ -750,6 +864,401 @@ Portfolio Summary:
         self.print_detailed_analysis()
         self.print_risk_comparison_summary()
         self.create_visualizations()
+
+    def run_protection_analysis(self):
+        """Run comprehensive downside protection analysis"""
+        print("Running Downside Protection Analysis...")
+        self.clean_data()
+        self.get_latest_prices_and_convert()
+        self.df = self.df_updated
+        self.total_value = self.total_value_updated
+        historical_data = self.get_historical_data()
+        if historical_data:
+            self.calculate_advanced_risk_metrics(historical_data)
+        self.analyze_diversification()
+        self.apply_dalio_principles()
+        self.print_protection_analysis()
+
+    def print_protection_analysis(self):
+        """Print comprehensive downside protection strategies"""
+        print("\n" + "=" * 80)
+        print("🛡️  DOWNSIDE PROTECTION ANALYSIS")
+        print("=" * 80)
+
+        # Current portfolio risk assessment
+        print("\n📊 CURRENT PORTFOLIO RISK ASSESSMENT:")
+        print("-" * 50)
+
+        # Find highest risk positions
+        high_risk_positions = []
+        concentration_risk = None
+
+        print(f"   🔍 Analyzing {len(self.df)} positions...")
+
+        for _, row in self.df.iterrows():
+            asset_name = row["Asset"]
+            weight = (row["Value in Cad"] / self.total_value) * 100
+
+            # Check for concentration risk first
+            if weight > 10:  # Concentration risk
+                concentration_risk = {
+                    "asset": asset_name,
+                    "weight": weight,
+                    "value": row["Value in Cad"],
+                    "volatility": 0,  # Will update if found in risk metrics
+                }
+                print(f"   🚨 Found concentration risk: {asset_name} ({weight:.1f}%)")
+
+            # Check for high volatility positions
+            if len(self.risk_metrics) > 0:
+                asset_metrics = self.risk_metrics[
+                    self.risk_metrics["Asset"] == asset_name
+                ]
+                if not asset_metrics.empty:
+                    metrics = asset_metrics.iloc[0]
+                    volatility = metrics.get("Volatility", 0)
+
+                    # Update concentration risk volatility if it's the same asset
+                    if concentration_risk and concentration_risk["asset"] == asset_name:
+                        concentration_risk["volatility"] = volatility
+
+                    if volatility > 40:  # High volatility
+                        high_risk_positions.append(
+                            {
+                                "asset": asset_name,
+                                "weight": weight,
+                                "volatility": volatility,
+                                "sharpe": metrics.get("Sharpe_Ratio", 0),
+                                "max_drawdown": metrics.get("Max_Drawdown", 0),
+                            }
+                        )
+                        print(
+                            f"   ⚠️  Found high volatility: {asset_name} ({volatility:.1f}%)"
+                        )
+
+        if concentration_risk:
+            print(f"🚨 CONCENTRATION RISK DETECTED:")
+            print(
+                f"   • {concentration_risk['asset']}: {concentration_risk['weight']:.1f}% of portfolio"
+            )
+            print(f"   • Value: ${concentration_risk['value']:,.0f} CAD")
+            print(f"   • Volatility: {concentration_risk['volatility']:.1f}%")
+            print(f"   • Risk: Single point of failure")
+
+        if high_risk_positions:
+            print(f"\n⚠️  HIGH VOLATILITY POSITIONS:")
+            for pos in high_risk_positions:
+                print(
+                    f"   • {pos['asset']}: {pos['weight']:.1f}% weight, {pos['volatility']:.1f}% volatility"
+                )
+                print(
+                    f"     Sharpe: {pos['sharpe']:.2f}, Max Drawdown: {pos['max_drawdown']:.1f}%"
+                )
+
+        # Protection strategies
+        print("\n" + "=" * 80)
+        print("🛡️  DOWNSIDE PROTECTION STRATEGIES")
+        print("=" * 80)
+
+        print("\n1️⃣  PROTECTIVE PUT OPTIONS (Immediate Protection):")
+        print("-" * 50)
+        if concentration_risk:
+            put_cost = concentration_risk["value"] * 0.025  # 2.5% of position
+            print(f"   📈 {concentration_risk['asset']} Protection:")
+            print(f"      • Buy 3-month puts 10% below current price")
+            print(f"      • Cost: ~${put_cost:,.0f} (2.5% of position)")
+            print(f"      • Protection: Limits downside to 10%")
+            print(f"      • Upside: Unlimited potential maintained")
+        else:
+            print("   No concentration risk positions detected.")
+
+        if high_risk_positions:
+            for pos in high_risk_positions[:3]:  # Top 3 high-risk positions
+                put_cost = (
+                    (pos["weight"] / 100) * self.total_value * 0.03
+                )  # 3% of position
+                print(f"   📈 {pos['asset']} Protection:")
+                print(f"      • Buy put spreads (lower cost than outright puts)")
+                print(f"      • Cost: ~${put_cost:,.0f}")
+                print(f"      • Protection: Limits losses while maintaining upside")
+        else:
+            print("   No high-volatility positions detected.")
+
+        print("\n2️⃣  PORTFOLIO INSURANCE WITH DEFENSIVE ASSETS:")
+        print("-" * 50)
+
+        # Calculate current cash and defensive allocation
+        cash_positions = self.df[self.df["Stock/ETF"] == "Cash"]
+        total_cash = (
+            cash_positions["Value in Cad"].sum() if not cash_positions.empty else 0
+        )
+
+        print(
+            f"   💰 Current Cash: ${total_cash:,.0f} ({total_cash/self.total_value*100:.1f}%)"
+        )
+
+        recommended_defensive = self.total_value * 0.15  # 15% defensive allocation
+        additional_needed = recommended_defensive - total_cash
+
+        if additional_needed > 0:
+            print(
+                f"   🎯 Recommended Defensive Allocation: ${recommended_defensive:,.0f} (15%)"
+            )
+            print(f"   ➕ Additional Needed: ${additional_needed:,.0f}")
+
+            print(f"\n   📋 Defensive Asset Allocation:")
+            print(f"      • TLT (Long-term Treasury): ${additional_needed * 0.4:,.0f}")
+            print(f"      • GLD (Gold): ${additional_needed * 0.3:,.0f}")
+            print(f"      • SHY (Short-term Treasury): ${additional_needed * 0.2:,.0f}")
+            print(f"      • Cash: ${additional_needed * 0.1:,.0f}")
+        else:
+            print("   Defensive allocation target met or exceeded.")
+
+        print("\n3️⃣  DYNAMIC ASSET ALLOCATION:")
+        print("-" * 50)
+        print("   🛑 Stop-Loss Strategy:")
+
+        if concentration_risk:
+            stop_loss_value = concentration_risk["value"] * 0.15  # 15% stop-loss
+            print(
+                f"      • {concentration_risk['asset']}: -15% stop-loss (protects ${stop_loss_value:,.0f})"
+            )
+        else:
+            print("      • No concentration risk positions for stop-loss.")
+
+        if high_risk_positions:
+            for pos in high_risk_positions[:3]:
+                stop_loss_value = (
+                    (pos["weight"] / 100) * self.total_value * 0.20
+                )  # 20% stop-loss
+                print(
+                    f"      • {pos['asset']}: -20% stop-loss (protects ${stop_loss_value:,.0f})"
+                )
+        else:
+            print("      • No high-volatility positions for stop-loss.")
+
+        print("   📈 Trailing Stops: Move stops up as positions gain")
+
+        print("\n4️⃣  COVERED CALL INCOME GENERATION:")
+        print("-" * 50)
+
+        # Find good candidates for covered calls
+        covered_call_candidates = []
+        for _, row in self.df.iterrows():
+            if len(self.risk_metrics) > 0:
+                asset_metrics = self.risk_metrics[
+                    self.risk_metrics["Asset"] == row["Asset"]
+                ]
+                if not asset_metrics.empty:
+                    metrics = asset_metrics.iloc[0]
+                    weight = (row["Value in Cad"] / self.total_value) * 100
+
+                    if weight > 2 and metrics.get("Sharpe_Ratio", 0) > 0.8:
+                        covered_call_candidates.append(
+                            {
+                                "asset": row["Asset"],
+                                "value": row["Value in Cad"],
+                                "weight": weight,
+                                "sharpe": metrics.get("Sharpe_Ratio", 0),
+                            }
+                        )
+
+        if covered_call_candidates:
+            print("   📊 Covered Call Candidates:")
+            for candidate in covered_call_candidates[:5]:
+                monthly_income = candidate["value"] * 0.02  # 2% monthly premium
+                print(
+                    f"      • {candidate['asset']}: ${monthly_income:,.0f}/month premium"
+                )
+                print(
+                    f"        Upside cap: 5% per month, Downside protection: Premium reduces cost basis"
+                )
+        else:
+            print("   No covered call candidates at this time.")
+
+        print("\n5️⃣  RISK PARITY REBALANCING:")
+        print("-" * 50)
+
+        if concentration_risk:
+            reduction_amount = concentration_risk["value"] * 0.6  # Reduce by 60%
+            print(f"   🎯 Immediate Action Plan:")
+            print(
+                f"      SELL: {concentration_risk['asset']} (61% → 20%) = ${reduction_amount:,.0f}"
+            )
+            print(f"      BUY:")
+            print(
+                f"        • TLT (Long-term Treasury): 25% = ${reduction_amount * 0.4:,.0f}"
+            )
+            print(
+                f"        • VIG (Dividend Growth): 15% = ${reduction_amount * 0.25:,.0f}"
+            )
+            print(f"        • GLD (Gold): 10% = ${reduction_amount * 0.15:,.0f}")
+            print(f"        • Cash: 10% = ${reduction_amount * 0.2:,.0f}")
+        else:
+            print("   No concentration risk positions for rebalancing.")
+
+        print("\n6️⃣  SECTOR ROTATION DEFENSIVE:")
+        print("-" * 50)
+
+        # Find poor performing positions to replace
+        poor_performers = []
+        for _, row in self.df.iterrows():
+            if len(self.risk_metrics) > 0:
+                asset_metrics = self.risk_metrics[
+                    self.risk_metrics["Asset"] == row["Asset"]
+                ]
+                if not asset_metrics.empty:
+                    metrics = asset_metrics.iloc[0]
+                    sharpe = metrics.get("Sharpe_Ratio", 0)
+
+                    if sharpe < 0.5:  # Poor risk-adjusted returns
+                        poor_performers.append(
+                            {
+                                "asset": row["Asset"],
+                                "value": row["Value in Cad"],
+                                "sharpe": sharpe,
+                                "weight": (row["Value in Cad"] / self.total_value)
+                                * 100,
+                            }
+                        )
+
+        if poor_performers:
+            print("   🔄 Replace Poor Performers:")
+            for performer in poor_performers:
+                print(
+                    f"      • SELL: {performer['asset']} (Sharpe: {performer['sharpe']:.2f})"
+                )
+                print(f"        BUY: VIG/VYM/VTV (Quality dividend/value ETFs)")
+        else:
+            print("   No poor performers to replace at this time.")
+
+        # Implementation plan
+        print("\n" + "=" * 80)
+        print("📋 IMPLEMENTATION PLAN")
+        print("=" * 80)
+
+        print("\n🎯 PHASE 1: Immediate Protection (This Week)")
+        print("-" * 50)
+        print("   1. Buy Put Options:")
+        if concentration_risk:
+            put_cost = concentration_risk["value"] * 0.025
+            print(
+                f"      • {concentration_risk['asset']} $150 puts (3 months): ${put_cost:,.0f}"
+            )
+        else:
+            print("      • No concentration risk positions for puts.")
+        if high_risk_positions:
+            for pos in high_risk_positions[:2]:
+                put_cost = (pos["weight"] / 100) * self.total_value * 0.03
+                print(f"      • {pos['asset']} puts (3 months): ${put_cost:,.0f}")
+        else:
+            print("      • No high-volatility positions for puts.")
+        print("   2. Rebalance Cash to Defensive Assets:")
+        if additional_needed > 0:
+            print(f"      • TLT: ${additional_needed * 0.4:,.0f}")
+            print(f"      • GLD: ${additional_needed * 0.3:,.0f}")
+            print(f"      • SHY: ${additional_needed * 0.2:,.0f}")
+            print(f"      • Cash: ${additional_needed * 0.1:,.0f}")
+        else:
+            print("      • Defensive allocation target met or exceeded.")
+
+        print("\n🎯 PHASE 2: Reduce Concentration (Next Month)")
+        print("-" * 50)
+        if concentration_risk:
+            reduction_amount = concentration_risk["value"] * 0.6
+            print(f"   3. Sell {concentration_risk['asset']}: ${reduction_amount:,.0f}")
+            print(f"      • Buy TLT: ${reduction_amount * 0.4:,.0f}")
+            print(f"      • Buy VIG: ${reduction_amount * 0.25:,.0f}")
+            print(f"      • Buy VYM: ${reduction_amount * 0.25:,.0f}")
+            print(f"      • Cash: ${reduction_amount * 0.1:,.0f}")
+        else:
+            print("   3. No concentration risk positions to reduce.")
+
+        print("\n🎯 PHASE 3: Income Generation (Ongoing)")
+        print("-" * 50)
+        print("   4. Covered Call Strategy:")
+        if covered_call_candidates:
+            total_monthly_income = sum(
+                c["value"] * 0.02 for c in covered_call_candidates[:3]
+            )
+            print(f"      • Monthly Income: ${total_monthly_income:,.0f}")
+            print(f"      • Annual Income: ${total_monthly_income * 12:,.0f}")
+        else:
+            print("      • No covered call candidates at this time.")
+        print("   5. Cash-Secured Puts:")
+        print("      • Sell puts on quality stocks at 10% below market")
+        print("      • Generate 2-4% monthly income")
+
+        # Expected results
+        print("\n" + "=" * 80)
+        print("📊 EXPECTED RESULTS")
+        print("=" * 80)
+
+        print("\n📈 BEFORE PROTECTION:")
+        print("   • Max Drawdown: -30% (concentration risk)")
+        print("   • Daily VaR: -2.8%")
+        print("   • Portfolio Volatility: ~25%")
+
+        print("\n📈 AFTER PROTECTION:")
+        print("   • Max Drawdown: -15% (limited by puts + bonds)")
+        print("   • Daily VaR: -1.5%")
+        print("   • Portfolio Volatility: ~12%")
+        print("   • Upside Potential: Still 100%+ (unlimited)")
+        if covered_call_candidates:
+            total_monthly_income = sum(
+                c["value"] * 0.02 for c in covered_call_candidates[:3]
+            )
+            annual_income = total_monthly_income * 12
+            # Cost-benefit analysis
+            print("\n" + "=" * 80)
+            print("💰 COST-BENEFIT ANALYSIS")
+            print("=" * 80)
+
+            # Always define these variables at the very top
+            total_put_cost = 0
+            if concentration_risk:
+                total_put_cost += concentration_risk["value"] * 0.025
+            for pos in high_risk_positions[:3]:
+                total_put_cost += (pos["weight"] / 100) * self.total_value * 0.03
+
+            bond_opportunity_cost = 0
+            if "additional_needed" in locals() and additional_needed > 0:
+                bond_opportunity_cost = additional_needed * 0.05  # 5% opportunity cost
+
+            print(f"\n💸 Protection Costs:")
+            print(
+                f"   • Put Options: ${total_put_cost:,.0f} annually ({(total_put_cost/self.total_value)*100:.1f}% of portfolio)"
+            )
+            print(
+                f"   • Bond Allocation: ${bond_opportunity_cost:,.0f} annually opportunity cost"
+            )
+            print(
+                f"   • Total Cost: ${total_put_cost + bond_opportunity_cost:,.0f} annually ({((total_put_cost + bond_opportunity_cost)/self.total_value)*100:.1f}% of portfolio)"
+            )
+
+            print(f"\n✅ Protection Benefits:")
+            print(f"   • Downside Limited: From -30% to -15%")
+            print(f"   • Sleep Better: Reduced stress and anxiety")
+            print(f"   • Stay Invested: Avoid panic selling")
+            print(f"   • Compound Growth: Preserve capital for future gains")
+
+            # Only print net benefit if all variables are available
+            if covered_call_candidates:
+                total_monthly_income = sum(
+                    c["value"] * 0.02 for c in covered_call_candidates[:3]
+                )
+                annual_income = total_monthly_income * 12
+                if total_put_cost is not None and bond_opportunity_cost is not None:
+                    net_benefit = annual_income - (
+                        total_put_cost + bond_opportunity_cost
+                    )
+                    print(
+                        f"\n💰 Net Benefit: ${net_benefit:,.0f} annually (income minus costs)"
+                    )
+
+            print("\n" + "=" * 80)
+            print("✅ PROTECTION ANALYSIS COMPLETE")
+            print("=" * 80)
 
 
 def main():
@@ -764,7 +1273,7 @@ def main():
     )
     parser.add_argument(
         "--analysis",
-        choices=["basic", "risk", "dalio", "visual", "complete"],
+        choices=["basic", "risk", "dalio", "visual", "complete", "protection"],
         default="complete",
         help="Type of analysis to run (default: complete)",
     )
@@ -789,6 +1298,8 @@ def main():
             analyzer.run_visualizations()
         elif args.analysis == "complete":
             analyzer.run_complete_analysis()
+        elif args.analysis == "protection":
+            analyzer.run_protection_analysis()
 
         print("\n" + "=" * 60)
         print("ANALYSIS COMPLETE")

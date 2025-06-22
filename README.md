@@ -97,6 +97,26 @@ python portfolio_analyzer.py --period 1y
 3. **`dalio`**: Ray Dalio principles assessment and recommendations
 4. **`visual`**: Generate portfolio visualizations and charts
 5. **`complete`**: Full analysis including all above components (default)
+6. **`protection`**: Downside protection strategies while keeping upside open
+
+### Protection Analysis
+
+The protection analysis provides comprehensive strategies to protect your portfolio's downside while maintaining upside potential:
+
+```bash
+python portfolio_analyzer.py --analysis protection
+```
+
+This analysis includes:
+
+1. **Current Risk Assessment**: Identifies concentration risks and high-volatility positions
+2. **Protective Put Options**: Immediate downside protection strategies
+3. **Portfolio Insurance**: Defensive asset allocation recommendations
+4. **Dynamic Asset Allocation**: Stop-loss and trailing stop strategies
+5. **Covered Call Income**: Income generation while maintaining upside
+6. **Risk Parity Rebalancing**: Concentration reduction strategies
+7. **Implementation Plan**: 3-phase execution strategy
+8. **Cost-Benefit Analysis**: Protection costs vs. benefits
 
 ### Expected CSV Format
 
