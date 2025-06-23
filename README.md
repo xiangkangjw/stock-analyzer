@@ -71,6 +71,10 @@ pip install -r requirements.txt
    - File should be named `stocks.csv`
    - Required columns: `Asset`, `Ticker`, `Group`, `Price`, `Holding`, `Value`, `US/CAD`, `Stock/ETF`, `Value in Cad`
 
+## Template
+
+📊 **Portfolio Template**: Use this [Google Sheets template](https://docs.google.com/spreadsheets/d/1xygwEZ20z1qCHMe32qti941VmXrzjs5SHZcZwi9TFSg/edit?gid=0#gid=0) to format your portfolio data correctly. Make a copy and fill in your holdings, then export as CSV.
+
 ## Usage
 
 ### Command-Line Options
