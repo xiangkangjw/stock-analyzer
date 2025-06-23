@@ -1260,6 +1260,443 @@ Portfolio Summary:
             print("✅ PROTECTION ANALYSIS COMPLETE")
             print("=" * 80)
 
+    def run_stress_test_analysis(self):
+        """Run comprehensive stress testing under severe financial conditions"""
+        print("Running Stress Testing Analysis...")
+        self.clean_data()
+        self.get_latest_prices_and_convert()
+        self.df = self.df_updated
+        self.total_value = self.total_value_updated
+        historical_data = self.get_historical_data()
+        if historical_data:
+            self.calculate_advanced_risk_metrics(historical_data)
+        self.analyze_diversification()
+        self.apply_dalio_principles()
+        self.print_stress_test_analysis()
+
+    def print_stress_test_analysis(self):
+        """Print comprehensive stress testing results"""
+        print("\n" + "=" * 80)
+        print("🔥 STRESS TESTING ANALYSIS")
+        print("=" * 80)
+
+        # Define stress scenarios
+        stress_scenarios = {
+            "2008 Financial Crisis": {
+                "market_crash": -50,
+                "volatility_spike": 3.0,
+                "correlation_increase": 0.8,
+                "liquidity_dry_up": 0.3,
+                "currency_volatility": 0.25,
+                "duration": "18 months",
+            },
+            "2020 COVID Crash": {
+                "market_crash": -35,
+                "volatility_spike": 4.0,
+                "correlation_increase": 0.9,
+                "liquidity_dry_up": 0.2,
+                "currency_volatility": 0.15,
+                "duration": "3 months",
+            },
+            "1970s Stagflation": {
+                "market_crash": -25,
+                "volatility_spike": 2.5,
+                "correlation_increase": 0.6,
+                "liquidity_dry_up": 0.1,
+                "currency_volatility": 0.20,
+                "duration": "10 years",
+            },
+            "Dot-com Bubble Burst": {
+                "market_crash": -45,
+                "volatility_spike": 2.8,
+                "correlation_increase": 0.7,
+                "liquidity_dry_up": 0.15,
+                "currency_volatility": 0.12,
+                "duration": "2 years",
+            },
+            "Black Monday 1987": {
+                "market_crash": -22,
+                "volatility_spike": 5.0,
+                "correlation_increase": 0.95,
+                "liquidity_dry_up": 0.4,
+                "currency_volatility": 0.08,
+                "duration": "1 day",
+            },
+            "2022 Inflation Shock": {
+                "market_crash": -20,
+                "volatility_spike": 2.2,
+                "correlation_increase": 0.5,
+                "liquidity_dry_up": 0.05,
+                "currency_volatility": 0.18,
+                "duration": "12 months",
+            },
+        }
+
+        print("\n📊 STRESS SCENARIOS SIMULATION:")
+        print("-" * 50)
+
+        # Calculate current portfolio metrics
+        current_portfolio_value = self.total_value
+        current_cash = (
+            self.cash_data["Value in Cad"].sum() if not self.cash_data.empty else 0
+        )
+        current_stock_etf_value = (
+            self.stock_etf_data["Value in Cad"].sum()
+            if not self.stock_etf_data.empty
+            else 0
+        )
+
+        print(f"💰 Current Portfolio Value: ${current_portfolio_value:,.0f} CAD")
+        print(
+            f"   • Cash: ${current_cash:,.0f} CAD ({current_cash/current_portfolio_value:.1%})"
+        )
+        print(
+            f"   • Stocks/ETFs: ${current_stock_etf_value:,.0f} CAD ({current_stock_etf_value/current_portfolio_value:.1%})"
+        )
+
+        # Run stress tests
+        stress_results = {}
+
+        for scenario_name, scenario_params in stress_scenarios.items():
+            print(f"\n🔥 {scenario_name.upper()}:")
+            print(f"   Duration: {scenario_params['duration']}")
+
+            # Calculate stress impact
+            market_crash_impact = scenario_params["market_crash"] / 100
+            volatility_multiplier = scenario_params["volatility_spike"]
+            correlation_impact = scenario_params["correlation_increase"]
+            liquidity_impact = scenario_params["liquidity_dry_up"]
+            currency_impact = scenario_params["currency_volatility"]
+
+            # Simulate portfolio performance under stress
+            stressed_stock_etf_value = current_stock_etf_value * (
+                1 + market_crash_impact
+            )
+
+            # Apply correlation impact (diversification becomes less effective)
+            correlation_penalty = (
+                correlation_impact - 0.3
+            ) * 0.1  # Base correlation of 0.3
+            stressed_stock_etf_value *= 1 - correlation_penalty
+
+            # Apply liquidity impact (harder to sell positions)
+            liquidity_penalty = liquidity_impact * 0.05  # 5% penalty for illiquidity
+            stressed_stock_etf_value *= 1 - liquidity_penalty
+
+            # Currency volatility impact
+            currency_penalty = (
+                currency_impact * 0.02
+            )  # 2% penalty for currency volatility
+            stressed_stock_etf_value *= 1 - currency_penalty
+
+            # Cash remains relatively stable (small inflation impact)
+            inflation_impact = (
+                -0.02 if "stagflation" in scenario_name.lower() else -0.005
+            )
+            stressed_cash = current_cash * (1 + inflation_impact)
+
+            # Calculate total stressed portfolio value
+            stressed_total = stressed_stock_etf_value + stressed_cash
+            portfolio_loss = (
+                stressed_total - current_portfolio_value
+            ) / current_portfolio_value
+
+            stress_results[scenario_name] = {
+                "stressed_value": stressed_total,
+                "portfolio_loss": portfolio_loss,
+                "stressed_stock_etf": stressed_stock_etf_value,
+                "stressed_cash": stressed_cash,
+                "duration": scenario_params["duration"],
+            }
+
+            print(f"   📉 Portfolio Loss: {portfolio_loss:.1%}")
+            print(f"   💰 Stressed Value: ${stressed_total:,.0f} CAD")
+            print(f"   📊 Stocks/ETFs: ${stressed_stock_etf_value:,.0f} CAD")
+            print(f"   💵 Cash: ${stressed_cash:,.0f} CAD")
+
+        # Worst-case scenario analysis
+        print("\n" + "=" * 80)
+        print("🚨 WORST-CASE SCENARIO ANALYSIS")
+        print("=" * 80)
+
+        worst_scenario = min(
+            stress_results.items(), key=lambda x: x[1]["portfolio_loss"]
+        )
+        worst_loss = worst_scenario[1]["portfolio_loss"]
+        worst_value = worst_scenario[1]["stressed_value"]
+
+        print(f"\n🔥 Worst Scenario: {worst_scenario[0]}")
+        print(f"   📉 Maximum Loss: {worst_loss:.1%}")
+        print(f"   💰 Minimum Value: ${worst_value:,.0f} CAD")
+        print(f"   ⏱️  Duration: {worst_scenario[1]['duration']}")
+
+        # Recovery analysis
+        print(f"\n📈 Recovery Analysis:")
+        recovery_years = {
+            "2008 Financial Crisis": 4,
+            "2020 COVID Crash": 1,
+            "1970s Stagflation": 8,
+            "Dot-com Bubble Burst": 3,
+            "Black Monday 1987": 0.5,
+            "2022 Inflation Shock": 2,
+        }
+
+        if worst_scenario[0] in recovery_years:
+            recovery_time = recovery_years[worst_scenario[0]]
+            print(f"   • Historical Recovery Time: {recovery_time} years")
+
+            # Calculate compound annual growth rate needed for recovery
+            if worst_loss < 0:
+                cagr_needed = (
+                    (current_portfolio_value / worst_value) ** (1 / recovery_time)
+                ) - 1
+                print(f"   • Required CAGR for Recovery: {cagr_needed:.1%}")
+
+                # Assess if recovery is realistic
+                if cagr_needed > 0.15:  # 15% CAGR
+                    print(
+                        f"   ⚠️  Recovery may be challenging (requires >15% annual returns)"
+                    )
+                elif cagr_needed > 0.10:  # 10% CAGR
+                    print(
+                        f"   🟡 Recovery is achievable but requires strong performance"
+                    )
+                else:
+                    print(f"   ✅ Recovery appears realistic")
+
+        # Portfolio resilience scoring
+        print("\n" + "=" * 80)
+        print("🛡️  PORTFOLIO RESILIENCE SCORING")
+        print("=" * 80)
+
+        # Calculate resilience metrics
+        avg_loss = np.mean(
+            [result["portfolio_loss"] for result in stress_results.values()]
+        )
+        max_loss = min([result["portfolio_loss"] for result in stress_results.values()])
+        loss_volatility = np.std(
+            [result["portfolio_loss"] for result in stress_results.values()]
+        )
+
+        # Cash buffer score
+        cash_buffer_score = min(
+            current_cash / current_portfolio_value * 10, 10
+        )  # Max 10 points
+
+        # Diversification score
+        diversification_score = min(
+            (1 - self.dalio_analysis["hhi"]) * 10, 10
+        )  # Max 10 points
+
+        # Volatility score (lower is better)
+        if len(self.risk_metrics) > 0:
+            avg_volatility = self.risk_metrics["Volatility"].mean()
+            volatility_score = max(10 - (avg_volatility * 20), 0)  # Max 10 points
+        else:
+            volatility_score = 5  # Neutral score
+
+        # Correlation score
+        if "diversification_score" in self.dalio_analysis["principles"]:
+            correlation_score = (
+                self.dalio_analysis["principles"]["diversification_score"] * 10
+            )
+        else:
+            correlation_score = 5  # Neutral score
+
+        # Overall resilience score
+        resilience_score = (
+            cash_buffer_score
+            + diversification_score
+            + volatility_score
+            + correlation_score
+        ) / 4
+
+        print(f"\n📊 Resilience Metrics:")
+        print(f"   • Average Loss Across Scenarios: {avg_loss:.1%}")
+        print(f"   • Maximum Loss: {max_loss:.1%}")
+        print(f"   • Loss Volatility: {loss_volatility:.1%}")
+
+        print(f"\n🏆 Resilience Scoring (0-10 scale):")
+        print(f"   • Cash Buffer: {cash_buffer_score:.1f}/10")
+        print(f"   • Diversification: {diversification_score:.1f}/10")
+        print(f"   • Volatility Management: {volatility_score:.1f}/10")
+        print(f"   • Correlation Management: {correlation_score:.1f}/10")
+        print(f"   • OVERALL RESILIENCE: {resilience_score:.1f}/10")
+
+        # Resilience rating
+        if resilience_score >= 8:
+            resilience_rating = "🟢 EXCELLENT"
+            rating_description = "Portfolio shows strong resilience to stress scenarios"
+        elif resilience_score >= 6:
+            resilience_rating = "🟡 GOOD"
+            rating_description = (
+                "Portfolio has moderate resilience with room for improvement"
+            )
+        elif resilience_score >= 4:
+            resilience_rating = "🟠 MODERATE"
+            rating_description = "Portfolio may struggle in severe stress scenarios"
+        else:
+            resilience_rating = "🔴 POOR"
+            rating_description = "Portfolio is vulnerable to stress scenarios"
+
+        print(f"\n🎯 Resilience Rating: {resilience_rating}")
+        print(f"   {rating_description}")
+
+        # Stress test recommendations
+        print("\n" + "=" * 80)
+        print("💡 STRESS TEST RECOMMENDATIONS")
+        print("=" * 80)
+
+        recommendations = []
+
+        # Cash recommendations
+        if current_cash / current_portfolio_value < 0.05:
+            recommendations.append(
+                "💰 Increase cash buffer to 5-10% for stress scenarios"
+            )
+        elif current_cash / current_portfolio_value > 0.20:
+            recommendations.append(
+                "📈 Consider deploying excess cash for better returns"
+            )
+
+        # Diversification recommendations
+        if self.dalio_analysis["hhi"] > 0.25:
+            recommendations.append(
+                "🔄 Reduce concentration risk by diversifying holdings"
+            )
+
+        # Volatility recommendations
+        if len(self.risk_metrics) > 0 and self.risk_metrics["Volatility"].mean() > 0.30:
+            recommendations.append(
+                "📉 Consider adding low-volatility assets to reduce portfolio risk"
+            )
+
+        # Defensive asset recommendations
+        defensive_assets = ["TLT", "GLD", "SHY", "BND"]
+        current_defensive = 0
+        for asset in defensive_assets:
+            if asset in self.df["Ticker"].values:
+                current_defensive += self.df[self.df["Ticker"] == asset][
+                    "Value in Cad"
+                ].sum()
+
+        defensive_allocation = current_defensive / current_portfolio_value
+        if defensive_allocation < 0.15:
+            recommendations.append(
+                "🛡️  Add defensive assets (bonds, gold) for stress protection"
+            )
+
+        # Currency diversification
+        usd_exposure = self.dalio_analysis["currency_exposure"].get("USD", 0)
+        if usd_exposure > 0.70:
+            recommendations.append(
+                "🌍 Reduce USD concentration for currency diversification"
+            )
+
+        # Specific stress scenario recommendations
+        if worst_loss < -0.30:  # More than 30% loss in worst case
+            recommendations.append(
+                "🚨 Consider hedging strategies for extreme market scenarios"
+            )
+
+        if recommendations:
+            print(f"\n📋 Recommendations for Stress Resilience:")
+            for i, rec in enumerate(recommendations, 1):
+                print(f"   {i}. {rec}")
+        else:
+            print(f"\n✅ Portfolio appears well-positioned for stress scenarios")
+
+        # Monte Carlo simulation summary
+        print("\n" + "=" * 80)
+        print("🎲 MONTE CARLO STRESS SIMULATION")
+        print("=" * 80)
+
+        print(f"\n📊 Running 10,000 Monte Carlo simulations...")
+
+        # Simulate portfolio returns under various stress conditions
+        np.random.seed(42)  # For reproducible results
+
+        # Generate random stress scenarios
+        n_simulations = 10000
+        simulated_losses = []
+
+        for _ in range(n_simulations):
+            # Random stress parameters
+            market_crash = np.random.normal(-0.25, 0.15)  # Mean -25%, std 15%
+            volatility_spike = (
+                np.random.exponential(2.0) + 1.0
+            )  # Exponential distribution
+            correlation_impact = np.random.beta(
+                2, 5
+            )  # Beta distribution for correlation
+            liquidity_impact = np.random.exponential(0.1)  # Liquidity impact
+
+            # Apply stress to portfolio
+            stressed_value = current_stock_etf_value * (1 + market_crash)
+            stressed_value *= 1 - correlation_impact * 0.05
+            stressed_value *= 1 - liquidity_impact
+
+            # Cash impact (small)
+            cash_impact = np.random.normal(-0.01, 0.02)
+            stressed_cash = current_cash * (1 + cash_impact)
+
+            total_stressed = stressed_value + stressed_cash
+            loss = (total_stressed - current_portfolio_value) / current_portfolio_value
+            simulated_losses.append(loss)
+
+        simulated_losses = np.array(simulated_losses)
+
+        # Calculate Monte Carlo statistics
+        mc_avg_loss = np.mean(simulated_losses)
+        mc_median_loss = np.median(simulated_losses)
+        mc_std_loss = np.std(simulated_losses)
+        mc_var_95 = np.percentile(simulated_losses, 5)
+        mc_var_99 = np.percentile(simulated_losses, 1)
+        mc_max_loss = np.min(simulated_losses)
+
+        print(f"\n📈 Monte Carlo Results:")
+        print(f"   • Average Loss: {mc_avg_loss:.1%}")
+        print(f"   • Median Loss: {mc_median_loss:.1%}")
+        print(f"   • Loss Volatility: {mc_std_loss:.1%}")
+        print(f"   • 95% VaR: {mc_var_95:.1%}")
+        print(f"   • 99% VaR: {mc_var_99:.1%}")
+        print(f"   • Maximum Loss: {mc_max_loss:.1%}")
+
+        # Probability of different loss levels
+        prob_10_percent_loss = np.mean(simulated_losses <= -0.10)
+        prob_20_percent_loss = np.mean(simulated_losses <= -0.20)
+        prob_30_percent_loss = np.mean(simulated_losses <= -0.30)
+
+        print(f"\n📊 Loss Probabilities:")
+        print(f"   • P(Loss > 10%): {prob_10_percent_loss:.1%}")
+        print(f"   • P(Loss > 20%): {prob_20_percent_loss:.1%}")
+        print(f"   • P(Loss > 30%): {prob_30_percent_loss:.1%}")
+
+        # Stress test summary
+        print("\n" + "=" * 80)
+        print("📋 STRESS TEST SUMMARY")
+        print("=" * 80)
+
+        print(f"\n🎯 Key Findings:")
+        print(f"   • Portfolio shows {resilience_rating} resilience to stress")
+        print(
+            f"   • Worst historical scenario: {worst_scenario[0]} ({worst_loss:.1%} loss)"
+        )
+        print(f"   • Monte Carlo 95% VaR: {mc_var_95:.1%}")
+        print(f"   • Probability of >20% loss: {prob_20_percent_loss:.1%}")
+
+        if resilience_score < 6:
+            print(
+                f"\n⚠️  WARNING: Portfolio may be vulnerable to severe stress scenarios"
+            )
+            print(f"   Consider implementing stress protection strategies")
+        else:
+            print(f"\n✅ Portfolio appears resilient to most stress scenarios")
+
+        print("\n" + "=" * 80)
+        print("✅ STRESS TESTING ANALYSIS COMPLETE")
+        print("=" * 80)
+
 
 def main():
     """Main function to run the portfolio analysis with command-line options"""
@@ -1273,7 +1710,15 @@ def main():
     )
     parser.add_argument(
         "--analysis",
-        choices=["basic", "risk", "dalio", "visual", "complete", "protection"],
+        choices=[
+            "basic",
+            "risk",
+            "dalio",
+            "visual",
+            "complete",
+            "protection",
+            "stress",
+        ],
         default="complete",
         help="Type of analysis to run (default: complete)",
     )
@@ -1300,6 +1745,8 @@ def main():
             analyzer.run_complete_analysis()
         elif args.analysis == "protection":
             analyzer.run_protection_analysis()
+        elif args.analysis == "stress":
+            analyzer.run_stress_test_analysis()
 
         print("\n" + "=" * 60)
         print("ANALYSIS COMPLETE")
