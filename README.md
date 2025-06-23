@@ -32,6 +32,15 @@ A comprehensive Python tool to analyze investment portfolios with a focus on ris
 - **Beta**: Market sensitivity measure
 - **Herfindahl-Hirschman Index (HHI)**: Portfolio concentration measure
 
+### 🔥 Stress Testing & Scenario Analysis
+
+- **Historical Stress Scenarios**: 2008 Crisis, COVID Crash, Stagflation, Dot-com Burst, Black Monday, Inflation Shock
+- **Multi-Factor Stress Modeling**: Market crashes, volatility spikes, correlation increases, liquidity dry-ups, currency volatility
+- **Portfolio Resilience Scoring**: 0-10 scale across cash buffer, diversification, volatility management, correlation management
+- **Monte Carlo Simulation**: 10,000 random stress scenarios with probability analysis
+- **Recovery Analysis**: Historical recovery times and required CAGR for portfolio recovery
+- **Stress-Specific Recommendations**: Targeted improvements for stress resilience
+
 ### 💡 Smart Recommendations
 
 - Concentration risk warnings
@@ -39,6 +48,7 @@ A comprehensive Python tool to analyze investment portfolios with a focus on ris
 - Cash allocation optimization
 - Risk-adjusted return improvements
 - Position-specific recommendations
+- Stress resilience enhancements
 
 ### 📊 Visualizations
 
@@ -83,6 +93,12 @@ python portfolio_analyzer.py --analysis dalio
 # Visualizations only
 python portfolio_analyzer.py --analysis visual
 
+# Downside protection strategies
+python portfolio_analyzer.py --analysis protection
+
+# Stress testing and scenario analysis
+python portfolio_analyzer.py --analysis stress
+
 # Custom CSV file
 python portfolio_analyzer.py --csv my_portfolio.csv
 
@@ -98,6 +114,61 @@ python portfolio_analyzer.py --period 1y
 4. **`visual`**: Generate portfolio visualizations and charts
 5. **`complete`**: Full analysis including all above components (default)
 6. **`protection`**: Downside protection strategies while keeping upside open
+7. **`stress`**: Comprehensive stress testing under severe financial conditions
+
+### Stress Testing Analysis
+
+The stress testing analysis simulates how your portfolio would perform under severe financial conditions:
+
+```bash
+python portfolio_analyzer.py --analysis stress
+```
+
+This analysis includes:
+
+1. **Historical Stress Scenarios**:
+
+   - **2008 Financial Crisis**: -50% market crash, 18 months duration
+   - **2020 COVID Crash**: -35% market crash, 3 months duration
+   - **1970s Stagflation**: -25% market crash, 10 years duration
+   - **Dot-com Bubble Burst**: -45% market crash, 2 years duration
+   - **Black Monday 1987**: -22% market crash, 1 day duration
+   - **2022 Inflation Shock**: -20% market crash, 12 months duration
+
+2. **Multi-Factor Stress Modeling**:
+
+   - Market crash impacts (percentage declines)
+   - Volatility spikes (2-5x normal volatility)
+   - Correlation increases (diversification becomes less effective)
+   - Liquidity dry-ups (harder to sell positions)
+   - Currency volatility (exchange rate impacts)
+
+3. **Portfolio Resilience Scoring (0-10 scale)**:
+
+   - **Cash Buffer Score**: Emergency cash availability
+   - **Diversification Score**: Portfolio diversification effectiveness
+   - **Volatility Management Score**: Risk management quality
+   - **Correlation Management Score**: Asset uncorrelation level
+
+4. **Monte Carlo Simulation**:
+
+   - 10,000 random stress scenarios
+   - Probability analysis for different loss levels
+   - Value at Risk (VaR) at 95% and 99% confidence levels
+   - Expected loss distributions
+
+5. **Recovery Analysis**:
+
+   - Historical recovery times for each scenario
+   - Required compound annual growth rate for recovery
+   - Recovery feasibility assessment
+
+6. **Stress-Specific Recommendations**:
+   - Cash buffer optimization
+   - Defensive asset allocation
+   - Concentration risk reduction
+   - Currency diversification
+   - Hedging strategies
 
 ### Protection Analysis
 
@@ -139,6 +210,8 @@ The analyzer provides:
    - Ray Dalio principles assessment
    - Personalized recommendations
    - Risk metrics comparison summary
+   - Stress testing results and resilience scoring
+   - Monte Carlo simulation statistics
 
 2. **Visual Dashboard**:
    - Interactive matplotlib visualizations
@@ -184,6 +257,30 @@ The analyzer provides:
   - β > 1: More volatile than market
   - β < 1: Less volatile than market
 - **Purpose**: Measures market sensitivity
+
+## Stress Testing Metrics Explained
+
+### Portfolio Resilience Score
+
+- **Components**: Cash buffer, diversification, volatility management, correlation management
+- **Scale**: 0-10 (10 = excellent resilience)
+- **Interpretation**:
+  - 8-10: Excellent resilience to stress scenarios
+  - 6-7: Good resilience with room for improvement
+  - 4-5: Moderate resilience, may struggle in severe stress
+  - 0-3: Poor resilience, vulnerable to stress scenarios
+
+### Monte Carlo VaR
+
+- **95% VaR**: 95% confidence that losses won't exceed this level
+- **99% VaR**: 99% confidence that losses won't exceed this level
+- **Purpose**: Quantifies potential losses under stress conditions
+
+### Recovery Analysis
+
+- **Historical Recovery Times**: Based on actual market recovery periods
+- **Required CAGR**: Compound annual growth rate needed to recover losses
+- **Feasibility Assessment**: Whether recovery targets are realistic
 
 ## Ray Dalio's Investment Philosophy
 
@@ -261,6 +358,12 @@ Cash positions: 7
    Asset Class Diversity: 4/4
    Geographic Diversification: 0.35
 
+🔥 STRESS TESTING ANALYSIS:
+   Portfolio Resilience Score: 7.2/10
+   Worst Scenario: 2008 Financial Crisis (-42.3% loss)
+   Monte Carlo 95% VaR: -18.7%
+   Probability of >20% loss: 12.3%
+
 📈 RISK METRICS COMPARISON SUMMARY:
    Sharpe Ratio:
      Best: NVIDIA (NVDA) = 1.85
@@ -270,6 +373,7 @@ Cash positions: 7
 💡 RECOMMENDATIONS:
    ⚠️  HIGH USD EXPOSURE: Consider increasing CAD-denominated investments
    💡  LOW CASH: Consider maintaining 5-10% cash for opportunities
+   🛡️  Add defensive assets (bonds, gold) for stress protection
 ```
 
 ## Troubleshooting
@@ -295,6 +399,8 @@ Feel free to enhance the analyzer with:
 - More sophisticated correlation analysis
 - Alternative visualization options
 - Integration with other data sources
+- Additional stress testing scenarios
+- Machine learning-based risk prediction
 
 ## License
 
