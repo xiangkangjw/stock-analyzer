@@ -139,40 +139,125 @@ This analysis includes:
    - **Black Monday 1987**: -22% market crash, 1 day duration
    - **2022 Inflation Shock**: -20% market crash, 12 months duration
 
-2. **Multi-Factor Stress Modeling**:
+2. **Enhanced Complex Instrument Modeling**:
 
-   - Market crash impacts (percentage declines)
-   - Volatility spikes (2-5x normal volatility)
+   - **Inverse ETFs** (SH, SDS, PSQ, etc.): Modeled to gain during market crashes
+   - **Leveraged ETFs** (TQQQ, SPXL, etc.): Amplified losses with higher volatility impact
+   - **Volatility ETFs** (VXX, UVXY, etc.): Direct volatility exposure with contango/backwardation
+   - **Options ETFs** (XYLD, QYLD, etc.): Strategy breakdown risk during stress
+   - **Currency ETFs** (UUP, FXE, etc.): Flight to safety and correlation breakdown
+   - **Commodity ETFs** (GLD, SLV, etc.): Inflation hedge with storage cost considerations
+
+3. **Multi-Factor Stress Modeling**:
+
+   - Market crash impacts (percentage declines with instrument-specific multipliers)
+   - Volatility spikes (2-5x normal volatility with instrument-specific sensitivity)
    - Correlation increases (diversification becomes less effective)
-   - Liquidity dry-ups (harder to sell positions)
+   - Liquidity dry-ups (harder to sell positions, especially complex instruments)
    - Currency volatility (exchange rate impacts)
 
-3. **Portfolio Resilience Scoring (0-10 scale)**:
+4. **Enhanced Portfolio Resilience Scoring (0-10 scale)**:
 
    - **Cash Buffer Score**: Emergency cash availability
    - **Diversification Score**: Portfolio diversification effectiveness
    - **Volatility Management Score**: Risk management quality
    - **Correlation Management Score**: Asset uncorrelation level
+   - **Complex Instrument Management Score**: Risk management for derivatives
 
-4. **Monte Carlo Simulation**:
+5. **Advanced Monte Carlo Simulation**:
 
-   - 10,000 random stress scenarios
+   - 10,000 random stress scenarios with instrument-specific modeling
    - Probability analysis for different loss levels
    - Value at Risk (VaR) at 95% and 99% confidence levels
-   - Expected loss distributions
+   - Expected loss distributions with complex instrument considerations
 
-5. **Recovery Analysis**:
+6. **Complex Instrument-Specific Recommendations**:
+
+   - **Leveraged ETFs**: Reduce exposure to <5% for high-risk scenarios
+   - **Inverse ETFs**: Monitor sizing and manage decay with monthly rebalancing
+   - **Volatility ETFs**: Use only for short-term volatility plays
+   - **Options ETFs**: Monitor strategy performance and implied volatility
+   - **Currency ETFs**: Monitor interest rate differentials and correlations
+   - **Commodity ETFs**: Monitor supply/demand fundamentals and storage costs
+
+7. **Recovery Analysis**:
 
    - Historical recovery times for each scenario
    - Required compound annual growth rate for recovery
-   - Recovery feasibility assessment
+   - Recovery feasibility assessment with complex instrument considerations
 
-6. **Stress-Specific Recommendations**:
+8. **Enhanced Stress-Specific Recommendations**:
+   - Complex instrument exposure management
    - Cash buffer optimization
    - Defensive asset allocation
    - Concentration risk reduction
    - Currency diversification
-   - Hedging strategies
+   - Hedging strategies for complex instruments
+
+### Testing Enhanced Stress Testing
+
+To test the enhanced stress testing with complex instruments:
+
+```bash
+python test_complex_instruments.py
+```
+
+This will run a demonstration with a portfolio containing:
+
+- Standard ETFs (VOO)
+- Inverse ETFs (SH)
+- Leveraged ETFs (TQQQ)
+- Volatility ETFs (VXX)
+- Options ETFs (XYLD)
+- Commodity ETFs (GLD)
+- Currency ETFs (UUP)
+- Cash positions
+
+### Complex Instrument Risk Management
+
+The enhanced stress testing provides specific guidance for managing complex instruments:
+
+**Leveraged ETFs (TQQQ, SPXL, etc.):**
+
+- ⚠️ HIGH RISK: Amplified losses in stress scenarios
+- Use for short-term momentum trades only
+- Set tight stop-losses (-10% to -15%)
+- Hedge with inverse ETFs or puts
+
+**Inverse ETFs (SH, SDS, etc.):**
+
+- 🛡️ PROTECTION: Can provide downside protection
+- Monitor for correlation breakdown
+- Rebalance monthly to manage decay
+- Best during high volatility periods
+
+**Volatility ETFs (VXX, UVXY, etc.):**
+
+- 📊 VOLATILITY: Direct exposure to market volatility
+- Use only for volatility hedging
+- Monitor VIX term structure and contango
+- Short-term holding only (days to weeks)
+
+**Options ETFs (XYLD, QYLD, etc.):**
+
+- 🎲 OPTIONS: Income generation with strategy risk
+- Monitor strategy performance and volatility
+- Be aware of gamma risk and strategy breakdown
+- Consider as income supplement
+
+**Currency ETFs (UUP, FXE, etc.):**
+
+- 🌍 CURRENCY: Currency diversification and speculation
+- Monitor interest rate differentials and policies
+- Be aware of currency volatility and correlations
+- Consider as portfolio hedge
+
+**Commodity ETFs (GLD, SLV, etc.):**
+
+- 🏭 COMMODITY: Inflation hedge and diversification
+- Monitor supply/demand fundamentals
+- Be aware of storage costs and contango
+- Consider as inflation hedge
 
 ### Protection Analysis
 

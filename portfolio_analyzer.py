@@ -46,6 +46,156 @@ class PortfolioAnalyzer:
             "AMD": "AMD",
         }
 
+        # Enhanced asset classification for complex instruments
+        self.complex_instruments = {
+            # Inverse ETFs (move opposite to market)
+            "inverse_etfs": [
+                "SDS",
+                "SH",
+                "PSQ",
+                "DOG",
+                "RWM",
+                "TWM",
+                "QID",
+                "MZZ",
+                "SMN",
+                "DXD",
+                "TZA",
+                "FAZ",
+                "DRV",
+                "YCS",
+                "FXP",
+                "EEV",
+                "DUG",
+                "SKF",
+                "SRS",
+                "SDP",
+                "SQQQ",
+                "SPXU",
+            ],
+            # Leveraged ETFs (amplified market moves)
+            "leveraged_etfs": [
+                "SPXL",
+                "SPXS",
+                "TQQQ",
+                "UPRO",
+                "TMF",
+                "TMV",
+                "LABU",
+                "LABD",
+                "SOXL",
+                "SOXS",
+                "DPSTU",
+                "DPSTD",
+                "ERX",
+                "ERY",
+                "FAS",
+                "FAZ",
+                "JNUG",
+                "JDST",
+                "YINN",
+                "YANG",
+                "NAIL",
+                "NAK",
+                "DRN",
+                "DRV",
+                "URE",
+                "SRS",
+            ],
+            # Volatility ETFs (VIX-based)
+            "volatility_etfs": [
+                "VXX",
+                "UVXY",
+                "SVXY",
+                "XIV",
+                "VXZ",
+                "VIXY",
+                "VIXM",
+                "VXXB",
+                "VXRT",
+                "VXUS",
+            ],
+            # Options-based ETFs
+            "options_etfs": [
+                "XYLD",
+                "QYLD",
+                "RYLD",
+                "JEPI",
+                "JEPQ",
+                "DIVO",
+                "NUSI",
+                "QYLG",
+                "XYLG",
+                "RYLG",
+            ],
+            # Currency ETFs
+            "currency_etfs": [
+                "UUP",
+                "UDN",
+                "FXE",
+                "FXB",
+                "FXC",
+                "FXF",
+                "FXA",
+                "FXY",
+                "FXS",
+                "FXM",
+            ],
+            # Commodity ETFs
+            "commodity_etfs": [
+                "GLD",
+                "SLV",
+                "USO",
+                "UNG",
+                "DBA",
+                "DBC",
+                "GSG",
+                "COMT",
+                "PDBC",
+                "CMDT",
+            ],
+        }
+
+        # Stress scenario multipliers for different instrument types
+        self.stress_multipliers = {
+            "inverse_etfs": {
+                "market_crash": 0.5,  # Inverse ETFs gain during crashes
+                "volatility_spike": 2.0,  # Higher volatility impact
+                "liquidity_dry_up": 1.5,  # More sensitive to liquidity
+                "correlation_breakdown": 0.3,  # Correlation may break down
+            },
+            "leveraged_etfs": {
+                "market_crash": 2.5,  # Amplified losses
+                "volatility_spike": 3.0,  # Much higher volatility impact
+                "liquidity_dry_up": 2.0,  # Very sensitive to liquidity
+                "correlation_breakdown": 0.1,  # Correlation breakdown hurts
+            },
+            "volatility_etfs": {
+                "market_crash": 1.5,  # Volatility spikes during crashes
+                "volatility_spike": 4.0,  # Direct volatility exposure
+                "liquidity_dry_up": 2.5,  # Very illiquid during stress
+                "correlation_breakdown": 0.2,  # Contango/backwardation issues
+            },
+            "options_etfs": {
+                "market_crash": 1.8,  # Options strategies can break down
+                "volatility_spike": 2.5,  # Vega exposure
+                "liquidity_dry_up": 1.8,  # Options liquidity dries up
+                "correlation_breakdown": 0.4,  # Greeks can change rapidly
+            },
+            "currency_etfs": {
+                "market_crash": 0.8,  # Flight to safety currencies
+                "volatility_spike": 1.5,  # Currency volatility
+                "liquidity_dry_up": 1.2,  # FX liquidity
+                "correlation_breakdown": 0.6,  # Currency correlations
+            },
+            "commodity_etfs": {
+                "market_crash": 1.2,  # Commodities can be defensive
+                "volatility_spike": 1.8,  # Commodity volatility
+                "liquidity_dry_up": 1.3,  # Physical delivery issues
+                "correlation_breakdown": 0.5,  # Commodity correlations
+            },
+        }
+
     def map_ticker(self, ticker):
         """Map ticker symbol to correct format for yfinance"""
         return self.ticker_mapper.get(ticker, ticker)
@@ -692,6 +842,205 @@ Portfolio Summary:
                 )
                 print(f"   Average: {self.risk_metrics[metric].mean():.2f}")
 
+        # Calculate portfolio-level metrics
+        print("\n" + "=" * 80)
+        print("📊 PORTFOLIO-LEVEL RISK METRICS")
+        print("=" * 80)
+
+        # Portfolio Beta (weighted average)
+        portfolio_beta = (self.risk_metrics["Weight"] * self.risk_metrics["Beta"]).sum()
+        print(f"\n🎯 Portfolio Beta: {portfolio_beta:.2f}")
+
+        if portfolio_beta > 1.2:
+            beta_interpretation = "Aggressive (high market sensitivity)"
+        elif portfolio_beta > 0.8:
+            beta_interpretation = "Moderate (balanced market sensitivity)"
+        else:
+            beta_interpretation = "Conservative (low market sensitivity)"
+        print(f"   Interpretation: {beta_interpretation}")
+
+        # Portfolio Alpha (excess return vs market)
+        risk_free_rate = 0.02  # 2% risk-free rate
+        market_return = 0.10  # Assuming 10% market return
+
+        # Calculate portfolio expected return based on beta
+        portfolio_expected_return = risk_free_rate + portfolio_beta * (
+            market_return - risk_free_rate
+        )
+
+        # Calculate actual portfolio return (weighted average of position returns)
+        portfolio_actual_return = (
+            self.risk_metrics["Weight"] * self.risk_metrics["Mean_Return"]
+        ).sum()
+
+        # Portfolio Alpha = Actual Return - Expected Return (based on CAPM)
+        portfolio_alpha = portfolio_actual_return - portfolio_expected_return
+
+        print(f"\n📈 Portfolio Alpha: {portfolio_alpha:.2%}")
+        if portfolio_alpha > 0.05:
+            alpha_interpretation = "Excellent (significant outperformance)"
+        elif portfolio_alpha > 0.02:
+            alpha_interpretation = "Good (moderate outperformance)"
+        elif portfolio_alpha > -0.02:
+            alpha_interpretation = "Neutral (market performance)"
+        else:
+            alpha_interpretation = "Poor (underperformance)"
+        print(f"   Interpretation: {alpha_interpretation}")
+
+        # Portfolio Volatility (weighted average)
+        portfolio_volatility = (
+            self.risk_metrics["Weight"] * self.risk_metrics["Volatility"]
+        ).sum()
+        print(f"\n📊 Portfolio Volatility: {portfolio_volatility:.2%}")
+
+        if portfolio_volatility > 0.30:
+            vol_interpretation = "High risk"
+        elif portfolio_volatility > 0.20:
+            vol_interpretation = "Moderate risk"
+        else:
+            vol_interpretation = "Low risk"
+        print(f"   Interpretation: {vol_interpretation}")
+
+        # Portfolio Sharpe Ratio
+        portfolio_sharpe = (
+            (portfolio_actual_return - risk_free_rate) / portfolio_volatility
+            if portfolio_volatility > 0
+            else 0
+        )
+        print(f"\n⚡ Portfolio Sharpe Ratio: {portfolio_sharpe:.2f}")
+
+        if portfolio_sharpe > 1.0:
+            sharpe_interpretation = "Excellent risk-adjusted returns"
+        elif portfolio_sharpe > 0.5:
+            sharpe_interpretation = "Good risk-adjusted returns"
+        elif portfolio_sharpe > 0:
+            sharpe_interpretation = "Moderate risk-adjusted returns"
+        else:
+            sharpe_interpretation = "Poor risk-adjusted returns"
+        print(f"   Interpretation: {sharpe_interpretation}")
+
+        # Portfolio Information Ratio (excess return vs S&P 500)
+        portfolio_info_ratio = (
+            self.risk_metrics["Weight"] * self.risk_metrics["Information_Ratio"]
+        ).sum()
+        print(f"\n📊 Portfolio Information Ratio: {portfolio_info_ratio:.2f}")
+
+        if portfolio_info_ratio > 0.5:
+            info_interpretation = "Excellent relative performance"
+        elif portfolio_info_ratio > 0.2:
+            info_interpretation = "Good relative performance"
+        elif portfolio_info_ratio > -0.2:
+            info_interpretation = "Neutral relative performance"
+        else:
+            info_interpretation = "Poor relative performance"
+        print(f"   Interpretation: {info_interpretation}")
+
+        # Risk decomposition
+        print(f"\n🔍 RISK DECOMPOSITION:")
+        print(f"   • Systematic Risk (Beta-driven): {portfolio_beta:.2f} × Market Risk")
+        print(f"   • Idiosyncratic Risk: Portfolio-specific factors")
+        print(f"   • Total Risk (Volatility): {portfolio_volatility:.2%}")
+
+        # Beta contribution by position
+        print(f"\n📊 BETA CONTRIBUTION BY POSITION:")
+        beta_contributions = self.risk_metrics[["Asset", "Weight", "Beta"]].copy()
+        beta_contributions["Beta_Contribution"] = (
+            beta_contributions["Weight"] * beta_contributions["Beta"]
+        )
+        beta_contributions = beta_contributions.sort_values(
+            "Beta_Contribution", ascending=False
+        )
+
+        for _, row in beta_contributions.head(10).iterrows():
+            print(
+                f"   • {row['Asset']}: {row['Beta_Contribution']:.3f} ({row['Weight']:.1%} × {row['Beta']:.2f})"
+            )
+
+        # Portfolio risk assessment
+        print(f"\n🎯 PORTFOLIO RISK ASSESSMENT:")
+        risk_score = 0
+
+        # Beta risk assessment
+        if portfolio_beta > 1.5:
+            print(
+                f"   ⚠️  HIGH BETA RISK: Portfolio is {portfolio_beta:.2f}x more volatile than market"
+            )
+            risk_score += 2
+        elif portfolio_beta > 1.2:
+            print(
+                f"   🟡 MODERATE BETA RISK: Portfolio is {portfolio_beta:.2f}x more volatile than market"
+            )
+            risk_score += 1
+        else:
+            print(
+                f"   ✅ LOW BETA RISK: Portfolio beta of {portfolio_beta:.2f} is manageable"
+            )
+
+        # Volatility risk assessment
+        if portfolio_volatility > 0.35:
+            print(
+                f"   ⚠️  HIGH VOLATILITY RISK: {portfolio_volatility:.1%} annual volatility"
+            )
+            risk_score += 2
+        elif portfolio_volatility > 0.25:
+            print(
+                f"   🟡 MODERATE VOLATILITY RISK: {portfolio_volatility:.1%} annual volatility"
+            )
+            risk_score += 1
+        else:
+            print(
+                f"   ✅ LOW VOLATILITY RISK: {portfolio_volatility:.1%} annual volatility"
+            )
+
+        # Alpha assessment
+        if portfolio_alpha > 0.05:
+            print(
+                f"   ✅ EXCELLENT ALPHA: {portfolio_alpha:.1%} excess return vs market"
+            )
+            risk_score -= 1
+        elif portfolio_alpha < -0.05:
+            print(f"   ⚠️  POOR ALPHA: {portfolio_alpha:.1%} underperformance vs market")
+            risk_score += 1
+
+        # Overall risk rating
+        if risk_score >= 3:
+            risk_rating = "🔴 HIGH RISK"
+        elif risk_score >= 1:
+            risk_rating = "🟡 MODERATE RISK"
+        else:
+            risk_rating = "🟢 LOW RISK"
+
+        print(f"\n🏆 OVERALL PORTFOLIO RISK RATING: {risk_rating}")
+
+        # Recommendations based on risk metrics
+        print(f"\n💡 RISK MANAGEMENT RECOMMENDATIONS:")
+        recommendations = []
+
+        if portfolio_beta > 1.3:
+            recommendations.append(
+                "   • Consider adding defensive positions to reduce beta"
+            )
+            recommendations.append(
+                "   • Monitor market sensitivity during volatility spikes"
+            )
+
+        if portfolio_volatility > 0.30:
+            recommendations.append("   • Consider adding low-volatility assets")
+            recommendations.append("   • Implement stop-loss strategies")
+
+        if portfolio_alpha < 0:
+            recommendations.append("   • Review underperforming positions")
+            recommendations.append("   • Consider rebalancing to market weights")
+
+        if len(recommendations) == 0:
+            recommendations.append("   • Portfolio risk metrics appear well-balanced")
+            recommendations.append(
+                "   • Continue monitoring for changes in market conditions"
+            )
+
+        for rec in recommendations:
+            print(rec)
+
     def get_latest_prices_and_convert(self):
         """Fetch latest prices and convert all values to CAD"""
         print("Fetching latest prices and converting to CAD...")
@@ -1280,6 +1629,29 @@ Portfolio Summary:
         print("🔥 STRESS TESTING ANALYSIS")
         print("=" * 80)
 
+        # Analyze complex instruments first
+        complex_risks = self.analyze_complex_instrument_risks()
+
+        if complex_risks:
+            print("\n🚨 COMPLEX INSTRUMENT DETECTED:")
+            print("-" * 50)
+            total_complex_value = 0
+            for instrument_type, positions in complex_risks.items():
+                type_value = sum(pos["value"] for pos in positions)
+                total_complex_value += type_value
+                print(
+                    f"   📊 {instrument_type.replace('_', ' ').title()}: ${type_value:,.0f} ({type_value/self.total_value:.1%})"
+                )
+                for pos in positions:
+                    print(
+                        f"      • {pos['asset']} ({pos['ticker']}): ${pos['value']:,.0f} ({pos['weight']:.1%})"
+                    )
+
+            print(
+                f"\n   ⚠️  Complex instruments represent {total_complex_value/self.total_value:.1%} of portfolio"
+            )
+            print(f"   🎯 Enhanced stress modeling will be applied")
+
         # Define stress scenarios
         stress_scenarios = {
             "2008 Financial Crisis": {
@@ -1354,40 +1726,53 @@ Portfolio Summary:
             f"   • Stocks/ETFs: ${current_stock_etf_value:,.0f} CAD ({current_stock_etf_value/current_portfolio_value:.1%})"
         )
 
-        # Run stress tests
+        # Run stress tests with enhanced modeling
         stress_results = {}
 
         for scenario_name, scenario_params in stress_scenarios.items():
             print(f"\n🔥 {scenario_name.upper()}:")
             print(f"   Duration: {scenario_params['duration']}")
 
-            # Calculate stress impact
-            market_crash_impact = scenario_params["market_crash"] / 100
-            volatility_multiplier = scenario_params["volatility_spike"]
-            correlation_impact = scenario_params["correlation_increase"]
-            liquidity_impact = scenario_params["liquidity_dry_up"]
-            currency_impact = scenario_params["currency_volatility"]
+            # Enhanced stress calculation for complex instruments
+            stressed_stock_etf_value = 0
 
-            # Simulate portfolio performance under stress
-            stressed_stock_etf_value = current_stock_etf_value * (
-                1 + market_crash_impact
-            )
+            for _, row in self.stock_etf_data.iterrows():
+                ticker = row["Ticker"]
+                position_value = row["Value in Cad"]
 
-            # Apply correlation impact (diversification becomes less effective)
-            correlation_penalty = (
-                correlation_impact - 0.3
-            ) * 0.1  # Base correlation of 0.3
-            stressed_stock_etf_value *= 1 - correlation_penalty
+                # Calculate base stress impact
+                base_stress_impact = scenario_params["market_crash"] / 100
 
-            # Apply liquidity impact (harder to sell positions)
-            liquidity_penalty = liquidity_impact * 0.05  # 5% penalty for illiquidity
-            stressed_stock_etf_value *= 1 - liquidity_penalty
+                # Apply instrument-specific stress modeling
+                instrument_stress_impact = self.calculate_complex_instrument_stress(
+                    ticker, base_stress_impact, scenario_params
+                )
 
-            # Currency volatility impact
-            currency_penalty = (
-                currency_impact * 0.02
-            )  # 2% penalty for currency volatility
-            stressed_stock_etf_value *= 1 - currency_penalty
+                # Apply additional stress factors
+                correlation_penalty = (
+                    scenario_params["correlation_increase"] - 0.3
+                ) * 0.1
+                liquidity_penalty = scenario_params["liquidity_dry_up"] * 0.05
+                currency_penalty = scenario_params["currency_volatility"] * 0.02
+
+                # Calculate final stressed value for this position
+                stressed_position_value = position_value * (
+                    1 + instrument_stress_impact
+                )
+                stressed_position_value *= 1 - correlation_penalty
+                stressed_position_value *= 1 - liquidity_penalty
+                stressed_position_value *= 1 - currency_penalty
+
+                stressed_stock_etf_value += stressed_position_value
+
+                # Print significant complex instrument impacts
+                if (
+                    self.classify_instrument(ticker) != "standard"
+                    and abs(instrument_stress_impact - base_stress_impact) > 0.1
+                ):
+                    print(
+                        f"      📊 {row['Asset']} ({ticker}): {instrument_stress_impact:.1%} vs {base_stress_impact:.1%} base"
+                    )
 
             # Cash remains relatively stable (small inflation impact)
             inflation_impact = (
@@ -1414,7 +1799,7 @@ Portfolio Summary:
             print(f"   📊 Stocks/ETFs: ${stressed_stock_etf_value:,.0f} CAD")
             print(f"   💵 Cash: ${stressed_cash:,.0f} CAD")
 
-        # Worst-case scenario analysis
+        # Enhanced worst-case scenario analysis
         print("\n" + "=" * 80)
         print("🚨 WORST-CASE SCENARIO ANALYSIS")
         print("=" * 80)
@@ -1429,6 +1814,27 @@ Portfolio Summary:
         print(f"   📉 Maximum Loss: {worst_loss:.1%}")
         print(f"   💰 Minimum Value: ${worst_value:,.0f} CAD")
         print(f"   ⏱️  Duration: {worst_scenario[1]['duration']}")
+
+        # Complex instrument specific warnings
+        if complex_risks:
+            print(f"\n⚠️  COMPLEX INSTRUMENT RISKS IN WORST SCENARIO:")
+            for instrument_type, positions in complex_risks.items():
+                if instrument_type == "leveraged_etfs":
+                    print(
+                        f"   🚨 Leveraged ETFs: Amplified losses in {worst_scenario[0]}"
+                    )
+                elif instrument_type == "inverse_etfs":
+                    print(
+                        f"   🎯 Inverse ETFs: May provide protection in {worst_scenario[0]}"
+                    )
+                elif instrument_type == "volatility_etfs":
+                    print(
+                        f"   📈 Volatility ETFs: High volatility exposure in {worst_scenario[0]}"
+                    )
+                elif instrument_type == "options_etfs":
+                    print(
+                        f"   🎲 Options ETFs: Strategy breakdown risk in {worst_scenario[0]}"
+                    )
 
         # Recovery analysis
         print(f"\n📈 Recovery Analysis:")
@@ -1464,7 +1870,7 @@ Portfolio Summary:
                 else:
                     print(f"   ✅ Recovery appears realistic")
 
-        # Portfolio resilience scoring
+        # Enhanced portfolio resilience scoring
         print("\n" + "=" * 80)
         print("🛡️  PORTFOLIO RESILIENCE SCORING")
         print("=" * 80)
@@ -1484,9 +1890,7 @@ Portfolio Summary:
         )  # Max 10 points
 
         # Diversification score
-        diversification_score = min(
-            (1 - self.dalio_analysis["hhi"]) * 10, 10
-        )  # Max 10 points
+        diversification_score = min((1 - self.dalio_analysis["hhi"]) * 10, 10)
 
         # Volatility score (lower is better)
         if len(self.risk_metrics) > 0:
@@ -1503,13 +1907,30 @@ Portfolio Summary:
         else:
             correlation_score = 5  # Neutral score
 
+        # Complex instrument penalty/adjustment
+        complex_instrument_score = 10
+        if complex_risks:
+            total_complex_weight = sum(
+                sum(pos["weight"] for pos in positions)
+                for positions in complex_risks.values()
+            )
+
+            # Penalize for high complex instrument exposure
+            if total_complex_weight > 0.3:  # >30% in complex instruments
+                complex_instrument_score = 2
+            elif total_complex_weight > 0.15:  # >15% in complex instruments
+                complex_instrument_score = 5
+            elif total_complex_weight > 0.05:  # >5% in complex instruments
+                complex_instrument_score = 7
+
         # Overall resilience score
         resilience_score = (
             cash_buffer_score
             + diversification_score
             + volatility_score
             + correlation_score
-        ) / 4
+            + complex_instrument_score
+        ) / 5
 
         print(f"\n📊 Resilience Metrics:")
         print(f"   • Average Loss Across Scenarios: {avg_loss:.1%}")
@@ -1521,6 +1942,7 @@ Portfolio Summary:
         print(f"   • Diversification: {diversification_score:.1f}/10")
         print(f"   • Volatility Management: {volatility_score:.1f}/10")
         print(f"   • Correlation Management: {correlation_score:.1f}/10")
+        print(f"   • Complex Instrument Management: {complex_instrument_score:.1f}/10")
         print(f"   • OVERALL RESILIENCE: {resilience_score:.1f}/10")
 
         # Resilience rating
@@ -1542,12 +1964,29 @@ Portfolio Summary:
         print(f"\n🎯 Resilience Rating: {resilience_rating}")
         print(f"   {rating_description}")
 
-        # Stress test recommendations
+        # Enhanced stress test recommendations
         print("\n" + "=" * 80)
         print("💡 STRESS TEST RECOMMENDATIONS")
         print("=" * 80)
 
         recommendations = []
+
+        # Complex instrument specific recommendations
+        if complex_risks:
+            complex_recommendations = self.generate_complex_instrument_recommendations(
+                complex_risks
+            )
+            for rec in complex_recommendations:
+                print(rec)
+
+            # Add to recommendations list for summary
+            recommendations.extend(
+                [
+                    "🚨 Complex instruments detected - see detailed analysis above",
+                    "🛡️  Implement instrument-specific risk management",
+                    "📊 Monitor correlations and breakdowns daily",
+                ]
+            )
 
         # Cash recommendations
         if current_cash / current_portfolio_value < 0.05:
@@ -1606,12 +2045,14 @@ Portfolio Summary:
         else:
             print(f"\n✅ Portfolio appears well-positioned for stress scenarios")
 
-        # Monte Carlo simulation summary
+        # Enhanced Monte Carlo simulation
         print("\n" + "=" * 80)
         print("🎲 MONTE CARLO STRESS SIMULATION")
         print("=" * 80)
 
-        print(f"\n📊 Running 10,000 Monte Carlo simulations...")
+        print(
+            f"\n📊 Running 10,000 Monte Carlo simulations with complex instrument modeling..."
+        )
 
         # Simulate portfolio returns under various stress conditions
         np.random.seed(42)  # For reproducible results
@@ -1631,10 +2072,35 @@ Portfolio Summary:
             )  # Beta distribution for correlation
             liquidity_impact = np.random.exponential(0.1)  # Liquidity impact
 
-            # Apply stress to portfolio
-            stressed_value = current_stock_etf_value * (1 + market_crash)
-            stressed_value *= 1 - correlation_impact * 0.05
-            stressed_value *= 1 - liquidity_impact
+            # Enhanced stress calculation for complex instruments
+            stressed_value = 0
+
+            for _, row in self.stock_etf_data.iterrows():
+                ticker = row["Ticker"]
+                position_value = row["Value in Cad"]
+
+                # Create scenario params for this simulation
+                sim_scenario_params = {
+                    "market_crash": market_crash * 100,
+                    "volatility_spike": volatility_spike,
+                    "correlation_increase": correlation_impact,
+                    "liquidity_dry_up": liquidity_impact,
+                    "currency_volatility": np.random.normal(0.15, 0.05),
+                }
+
+                # Apply instrument-specific stress modeling
+                instrument_stress_impact = self.calculate_complex_instrument_stress(
+                    ticker, market_crash, sim_scenario_params
+                )
+
+                # Apply additional stress factors
+                stressed_position_value = position_value * (
+                    1 + instrument_stress_impact
+                )
+                stressed_position_value *= 1 - correlation_impact * 0.05
+                stressed_position_value *= 1 - liquidity_impact
+
+                stressed_value += stressed_position_value
 
             # Cash impact (small)
             cash_impact = np.random.normal(-0.01, 0.02)
@@ -1672,6 +2138,28 @@ Portfolio Summary:
         print(f"   • P(Loss > 20%): {prob_20_percent_loss:.1%}")
         print(f"   • P(Loss > 30%): {prob_30_percent_loss:.1%}")
 
+        # Complex instrument specific Monte Carlo analysis
+        if complex_risks:
+            print(f"\n🎲 Complex Instrument Monte Carlo Analysis:")
+            for instrument_type, positions in complex_risks.items():
+                type_value = sum(pos["value"] for pos in positions)
+                type_weight = type_value / current_portfolio_value
+
+                if instrument_type == "leveraged_etfs":
+                    print(f"   📊 Leveraged ETFs ({type_weight:.1%}): Higher tail risk")
+                elif instrument_type == "inverse_etfs":
+                    print(
+                        f"   🎯 Inverse ETFs ({type_weight:.1%}): Potential downside protection"
+                    )
+                elif instrument_type == "volatility_etfs":
+                    print(
+                        f"   📈 Volatility ETFs ({type_weight:.1%}): High volatility exposure"
+                    )
+                elif instrument_type == "options_etfs":
+                    print(
+                        f"   🎲 Options ETFs ({type_weight:.1%}): Strategy breakdown risk"
+                    )
+
         # Stress test summary
         print("\n" + "=" * 80)
         print("📋 STRESS TEST SUMMARY")
@@ -1685,6 +2173,14 @@ Portfolio Summary:
         print(f"   • Monte Carlo 95% VaR: {mc_var_95:.1%}")
         print(f"   • Probability of >20% loss: {prob_20_percent_loss:.1%}")
 
+        if complex_risks:
+            total_complex_weight = sum(
+                sum(pos["weight"] for pos in positions)
+                for positions in complex_risks.values()
+            )
+            print(f"   • Complex instruments: {total_complex_weight:.1%} of portfolio")
+            print(f"   • Enhanced stress modeling applied for complex instruments")
+
         if resilience_score < 6:
             print(
                 f"\n⚠️  WARNING: Portfolio may be vulnerable to severe stress scenarios"
@@ -1696,6 +2192,341 @@ Portfolio Summary:
         print("\n" + "=" * 80)
         print("✅ STRESS TESTING ANALYSIS COMPLETE")
         print("=" * 80)
+
+    def classify_instrument(self, ticker):
+        """Classify instrument type for stress testing"""
+        for instrument_type, tickers in self.complex_instruments.items():
+            if ticker in tickers:
+                return instrument_type
+        return "standard"  # Regular stocks/ETFs
+
+    def calculate_complex_instrument_stress(
+        self, ticker, base_stress_impact, scenario_params
+    ):
+        """Calculate stress impact for complex instruments"""
+        instrument_type = self.classify_instrument(ticker)
+
+        if instrument_type == "standard":
+            return base_stress_impact
+
+        multipliers = self.stress_multipliers[instrument_type]
+
+        # Apply instrument-specific multipliers
+        adjusted_impact = base_stress_impact
+
+        # Market crash impact (inverse ETFs gain during crashes)
+        if instrument_type == "inverse_etfs":
+            market_crash = scenario_params["market_crash"] / 100
+            adjusted_impact = (
+                -market_crash * multipliers["market_crash"]
+            )  # Inverse relationship
+        else:
+            market_crash = scenario_params["market_crash"] / 100
+            adjusted_impact = market_crash * multipliers["market_crash"]
+
+        # Volatility impact
+        volatility_impact = (
+            (scenario_params["volatility_spike"] - 1.0)
+            * multipliers["volatility_spike"]
+            * 0.1
+        )
+        adjusted_impact += volatility_impact
+
+        # Liquidity impact
+        liquidity_impact = (
+            scenario_params["liquidity_dry_up"] * multipliers["liquidity_dry_up"] * 0.05
+        )
+        adjusted_impact -= liquidity_impact
+
+        # Correlation breakdown impact
+        correlation_impact = (
+            scenario_params["correlation_increase"]
+            * multipliers["correlation_breakdown"]
+            * 0.1
+        )
+        adjusted_impact -= correlation_impact
+
+        return adjusted_impact
+
+    def analyze_complex_instrument_risks(self):
+        """Analyze risks specific to complex instruments"""
+        complex_risks = {}
+
+        for _, row in self.stock_etf_data.iterrows():
+            ticker = row["Ticker"]
+            instrument_type = self.classify_instrument(ticker)
+
+            if instrument_type != "standard":
+                if instrument_type not in complex_risks:
+                    complex_risks[instrument_type] = []
+
+                complex_risks[instrument_type].append(
+                    {
+                        "ticker": ticker,
+                        "asset": row["Asset"],
+                        "value": row["Value in Cad"],
+                        "weight": row["Value in Cad"] / self.total_value,
+                        "type": instrument_type,
+                    }
+                )
+
+        return complex_risks
+
+    def generate_complex_instrument_recommendations(self, complex_risks):
+        """Generate specific recommendations for complex instruments"""
+        recommendations = []
+
+        if not complex_risks:
+            return recommendations
+
+        recommendations.append("\n🚨 COMPLEX INSTRUMENT MANAGEMENT STRATEGIES:")
+
+        # Leveraged ETF recommendations
+        if "leveraged_etfs" in complex_risks:
+            leveraged_positions = complex_risks["leveraged_etfs"]
+            total_leveraged_value = sum(pos["value"] for pos in leveraged_positions)
+            leveraged_weight = total_leveraged_value / self.total_value
+
+            recommendations.append(
+                f"\n📊 LEVERAGED ETFs ({leveraged_weight:.1%} of portfolio):"
+            )
+            recommendations.append(
+                "   ⚠️  HIGH RISK: Amplified losses in stress scenarios"
+            )
+
+            if leveraged_weight > 0.15:
+                recommendations.append("   🚨 CRITICAL: Reduce exposure immediately")
+                recommendations.append("      • Consider reducing to <5% of portfolio")
+                recommendations.append("      • Use stop-losses at -10% to -15%")
+                recommendations.append("      • Monitor daily for volatility spikes")
+            elif leveraged_weight > 0.10:
+                recommendations.append("   ⚠️  HIGH: Monitor closely")
+                recommendations.append("      • Set tight stop-losses")
+                recommendations.append("      • Consider hedging with inverse ETFs")
+            else:
+                recommendations.append("   🟡 MODERATE: Manage carefully")
+                recommendations.append("      • Use for tactical positions only")
+                recommendations.append("      • Avoid long-term holds")
+
+            recommendations.append(
+                "   💡 Strategy: Use for short-term momentum trades only"
+            )
+            recommendations.append("   🛡️  Protection: Hedge with inverse ETFs or puts")
+
+        # Inverse ETF recommendations
+        if "inverse_etfs" in complex_risks:
+            inverse_positions = complex_risks["inverse_etfs"]
+            total_inverse_value = sum(pos["value"] for pos in inverse_positions)
+            inverse_weight = total_inverse_value / self.total_value
+
+            recommendations.append(
+                f"\n🎯 INVERSE ETFs ({inverse_weight:.1%} of portfolio):"
+            )
+            recommendations.append("   🛡️  PROTECTION: Can provide downside protection")
+
+            if inverse_weight > 0.20:
+                recommendations.append("   ⚠️  HIGH: Monitor sizing")
+                recommendations.append("      • Inverse ETFs have decay over time")
+                recommendations.append("      • Consider reducing to <15% of portfolio")
+                recommendations.append("      • Rebalance monthly to manage decay")
+            elif inverse_weight > 0.10:
+                recommendations.append("   🟡 MODERATE: Good protection level")
+                recommendations.append("      • Monitor for correlation breakdown")
+                recommendations.append("      • Consider tactical adjustments")
+            else:
+                recommendations.append("   ✅ LOW: Appropriate sizing")
+                recommendations.append("      • Good for portfolio insurance")
+                recommendations.append(
+                    "      • Monitor correlation with main portfolio"
+                )
+
+            recommendations.append("   💡 Strategy: Use for portfolio insurance")
+            recommendations.append("   ⏰ Timing: Best during high volatility periods")
+            recommendations.append("   🔄 Rebalancing: Monthly to manage decay")
+
+        # Volatility ETF recommendations
+        if "volatility_etfs" in complex_risks:
+            vol_positions = complex_risks["volatility_etfs"]
+            total_vol_value = sum(pos["value"] for pos in vol_positions)
+            vol_weight = total_vol_value / self.total_value
+
+            recommendations.append(
+                f"\n📈 VOLATILITY ETFs ({vol_weight:.1%} of portfolio):"
+            )
+            recommendations.append(
+                "   📊 VOLATILITY: Direct exposure to market volatility"
+            )
+
+            if vol_weight > 0.10:
+                recommendations.append("   ⚠️  HIGH: Reduce exposure")
+                recommendations.append("      • Volatility ETFs are highly speculative")
+                recommendations.append("      • Consider reducing to <5% of portfolio")
+                recommendations.append(
+                    "      • Use only for short-term volatility plays"
+                )
+            elif vol_weight > 0.05:
+                recommendations.append("   🟡 MODERATE: Manage carefully")
+                recommendations.append("      • Monitor VIX term structure")
+                recommendations.append("      • Be aware of contango/backwardation")
+            else:
+                recommendations.append("   ✅ LOW: Appropriate for tactical use")
+                recommendations.append("      • Good for volatility hedging")
+                recommendations.append("      • Monitor VIX levels")
+
+            recommendations.append("   💡 Strategy: Use for volatility hedging only")
+            recommendations.append("   📊 Monitor: VIX term structure and contango")
+            recommendations.append("   ⏰ Holding: Short-term only (days to weeks)")
+
+        # Options ETF recommendations
+        if "options_etfs" in complex_risks:
+            options_positions = complex_risks["options_etfs"]
+            total_options_value = sum(pos["value"] for pos in options_positions)
+            options_weight = total_options_value / self.total_value
+
+            recommendations.append(
+                f"\n🎲 OPTIONS ETFs ({options_weight:.1%} of portfolio):"
+            )
+            recommendations.append(
+                "   🎲 OPTIONS: Income generation with strategy risk"
+            )
+
+            if options_weight > 0.25:
+                recommendations.append("   ⚠️  HIGH: Monitor strategy performance")
+                recommendations.append(
+                    "      • Options strategies can break down in stress"
+                )
+                recommendations.append("      • Consider reducing to <20% of portfolio")
+                recommendations.append("      • Monitor implied volatility levels")
+            elif options_weight > 0.15:
+                recommendations.append("   🟡 MODERATE: Good income generation")
+                recommendations.append("      • Monitor strategy performance")
+                recommendations.append("      • Be aware of gamma risk")
+            else:
+                recommendations.append("   ✅ LOW: Good for income generation")
+                recommendations.append("      • Monitor strategy performance")
+                recommendations.append("      • Consider as income supplement")
+
+            recommendations.append(
+                "   💡 Strategy: Income generation with risk management"
+            )
+            recommendations.append("   📊 Monitor: Strategy performance and volatility")
+            recommendations.append("   🛡️  Risk: Options strategies can break down")
+
+        # Currency ETF recommendations
+        if "currency_etfs" in complex_risks:
+            currency_positions = complex_risks["currency_etfs"]
+            total_currency_value = sum(pos["value"] for pos in currency_positions)
+            currency_weight = total_currency_value / self.total_value
+
+            recommendations.append(
+                f"\n🌍 CURRENCY ETFs ({currency_weight:.1%} of portfolio):"
+            )
+            recommendations.append(
+                "   🌍 CURRENCY: Currency diversification and speculation"
+            )
+
+            if currency_weight > 0.15:
+                recommendations.append("   ⚠️  HIGH: Monitor currency exposure")
+                recommendations.append("      • High currency exposure can be risky")
+                recommendations.append("      • Consider reducing to <10% of portfolio")
+                recommendations.append("      • Monitor central bank policies")
+            elif currency_weight > 0.08:
+                recommendations.append("   🟡 MODERATE: Good currency diversification")
+                recommendations.append("      • Monitor currency correlations")
+                recommendations.append(
+                    "      • Be aware of interest rate differentials"
+                )
+            else:
+                recommendations.append("   ✅ LOW: Good for currency diversification")
+                recommendations.append("      • Monitor currency correlations")
+                recommendations.append("      • Consider as portfolio hedge")
+
+            recommendations.append("   💡 Strategy: Currency diversification")
+            recommendations.append(
+                "   📊 Monitor: Interest rate differentials and policies"
+            )
+            recommendations.append("   🛡️  Risk: Currency volatility and correlations")
+
+        # Commodity ETF recommendations
+        if "commodity_etfs" in complex_risks:
+            commodity_positions = complex_risks["commodity_etfs"]
+            total_commodity_value = sum(pos["value"] for pos in commodity_positions)
+            commodity_weight = total_commodity_value / self.total_value
+
+            recommendations.append(
+                f"\n🏭 COMMODITY ETFs ({commodity_weight:.1%} of portfolio):"
+            )
+            recommendations.append(
+                "   🏭 COMMODITY: Inflation hedge and diversification"
+            )
+
+            if commodity_weight > 0.20:
+                recommendations.append("   ⚠️  HIGH: Monitor commodity exposure")
+                recommendations.append(
+                    "      • High commodity exposure can be volatile"
+                )
+                recommendations.append("      • Consider reducing to <15% of portfolio")
+                recommendations.append("      • Monitor supply/demand fundamentals")
+            elif commodity_weight > 0.10:
+                recommendations.append("   🟡 MODERATE: Good inflation hedge")
+                recommendations.append("      • Monitor commodity fundamentals")
+                recommendations.append("      • Be aware of storage costs and contango")
+            else:
+                recommendations.append("   ✅ LOW: Good for inflation protection")
+                recommendations.append("      • Monitor commodity fundamentals")
+                recommendations.append("      • Consider as inflation hedge")
+
+            recommendations.append(
+                "   💡 Strategy: Inflation protection and diversification"
+            )
+            recommendations.append("   📊 Monitor: Supply/demand fundamentals")
+            recommendations.append("   🛡️  Risk: Commodity volatility and storage costs")
+
+        # Overall complex instrument recommendations
+        total_complex_weight = sum(
+            sum(pos["weight"] for pos in positions)
+            for positions in complex_risks.values()
+        )
+
+        recommendations.append(
+            f"\n📊 OVERALL COMPLEX INSTRUMENT EXPOSURE ({total_complex_weight:.1%}):"
+        )
+
+        if total_complex_weight > 0.40:
+            recommendations.append(
+                "   🚨 CRITICAL: Portfolio is heavily exposed to complex instruments"
+            )
+            recommendations.append("      • Consider reducing to <25% of portfolio")
+            recommendations.append("      • Implement strict risk management")
+            recommendations.append("      • Monitor correlations and breakdowns")
+        elif total_complex_weight > 0.25:
+            recommendations.append(
+                "   ⚠️  HIGH: Significant complex instrument exposure"
+            )
+            recommendations.append("      • Monitor correlations and breakdowns")
+            recommendations.append("      • Implement risk management strategies")
+            recommendations.append("      • Consider reducing exposure")
+        elif total_complex_weight > 0.15:
+            recommendations.append(
+                "   🟡 MODERATE: Manageable complex instrument exposure"
+            )
+            recommendations.append("      • Monitor correlations and breakdowns")
+            recommendations.append("      • Implement basic risk management")
+            recommendations.append("      • Consider tactical adjustments")
+        else:
+            recommendations.append("   ✅ LOW: Appropriate complex instrument exposure")
+            recommendations.append("      • Monitor correlations and breakdowns")
+            recommendations.append("      • Implement basic risk management")
+            recommendations.append("      • Consider tactical opportunities")
+
+        recommendations.append("\n🛡️  RISK MANAGEMENT STRATEGIES:")
+        recommendations.append("   • Set stop-losses for all complex instruments")
+        recommendations.append("   • Monitor correlations daily during stress")
+        recommendations.append("   • Rebalance monthly to manage decay")
+        recommendations.append("   • Consider hedging with simpler instruments")
+        recommendations.append("   • Monitor liquidity during market stress")
+
+        return recommendations
 
 
 def main():
