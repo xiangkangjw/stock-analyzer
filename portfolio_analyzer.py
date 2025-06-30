@@ -34,7 +34,6 @@ class PortfolioAnalyzer:
             "XSP": "XSP.TO",
             "HSAV": "HSAV.TO",
             "ZMMK": "ZMMK.TO",
-            "ETF": "MFC.TO",  # Manulife Financial Corp
             "SHV": "SHV",
             "VOO": "VOO",
             "AAPL": "AAPL",
@@ -44,6 +43,8 @@ class PortfolioAnalyzer:
             "NVDA": "NVDA",
             "TSLA": "TSLA",
             "AMD": "AMD",
+            "CGL.C": "CGL-C.TO",
+            "VAB": "VAB.TO",
         }
 
         # Enhanced asset classification for complex instruments
